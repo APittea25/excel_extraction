@@ -55,7 +55,7 @@ if uploaded_files:
                         })
                         continue
 
-                                        for row in cell_range:
+                    for row in cell_range:
                         for cell in row:
                             raw_formula = None
 
@@ -65,9 +65,9 @@ if uploaded_files:
                                 raw_formula = str(cell.value.text).strip()
 
                             if raw_formula:
-                            formulas.append(raw_formula)
+                                formulas.append(raw_formula)
                             elif cell.value is not None:
-                            formulas.append(f"[value] {cell.value}")
+                                formulas.append(f"[value] {cell.value}")
 
                             
 
