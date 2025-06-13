@@ -1,7 +1,6 @@
 import streamlit as st
 from openpyxl import load_workbook
 from openpyxl.utils import column_index_from_string, get_column_letter
-from openpyxl.formula.array import ArrayFormula
 from io import BytesIO
 import re
 
@@ -144,8 +143,8 @@ if uploaded_files:
                                 raw_formula = None
                                 if cell.data_type == 'f':
                                     raw_formula = str(cell.value)
-                                elif isinstance(cell.value, ArrayFormula):
-                                    raw_formula = str(cell.value.text)
+                                elif hasattr(cell, 'formula') and hasattr(cell.formula, 'text'):
+                                    raw_formula = str(cell.formula.text)
 
                                 if raw_formula and raw_formula.startswith("="):
                                     formula = raw_formula.strip()
