@@ -65,13 +65,15 @@ if uploaded_files:
                                 raw_formula = cell.value.strip()
                             elif hasattr(cell.value, "text"):
                                 raw_formula = str(cell.value.text).strip()
-                            elif hasattr(cell, "formula") and isinstance(cell.formula, str):
-                                raw_formula = cell.formula.strip()
-                            elif hasattr(cell, "_value") and isinstance(cell._value, str) and cell._value.startswith("="):
-                                raw_formula = cell._value.strip()
 
+                            # fallback: top-left cell style extraction
                             if raw_formula:
-                            formulas.append(raw_formula)
+                                formulas.append(raw_formula)
+                            elif cell.value is not None:
+                                formulas.append(f"[value] {cell.value}")
+
+                            # break after first cell to mimic previous behavior
+                            break
                         elif cell.value is not None:
                             formulas.append(f"[value] {cell.value}")
 
