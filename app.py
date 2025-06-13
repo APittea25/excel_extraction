@@ -87,7 +87,7 @@ if uploaded_files:
                                             return f"{nr_name}[{r}][{c}]"
                                     return cell_ref
 
-                                raw_formula = re.sub(r"[A-Z]+[0-9]+", replace_match, raw_formula)
+                                raw_formula = re.sub(r"\b[A-Z]{1,3}[0-9]{1,7}\b", replace_match, raw_formula)
                                 formulas.append(raw_formula)
 
                             elif hasattr(cell.value, "text"):
