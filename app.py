@@ -61,12 +61,16 @@ if uploaded_files:
                         for cell in row:
                             raw_formula = None
 
-                        if isinstance(cell.value, str) and cell.value.startswith("="):
-                            raw_formula = cell.value.strip()
-                        elif hasattr(cell.value, "text"):
-                            raw_formula = str(cell.value.text).strip()
+                            if isinstance(cell.value, str) and cell.value.startswith("="):
+                                raw_formula = cell.value.strip()
+                            elif hasattr(cell.value, "text"):
+                                raw_formula = str(cell.value.text).strip()
+                            elif hasattr(cell, "formula") and isinstance(cell.formula, str):
+                                raw_formula = cell.formula.strip()
+                            elif hasattr(cell, "_value") and isinstance(cell._value, str) and cell._value.startswith("="):
+                                raw_formula = cell._value.strip()
 
-                        if raw_formula:
+                            if raw_formula:
                             formulas.append(raw_formula)
                         elif cell.value is not None:
                             formulas.append(f"[value] {cell.value}")
