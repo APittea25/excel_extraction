@@ -12,8 +12,8 @@ def extract_named_ranges(file, filename):
     wb = load_workbook(filename=BytesIO(file.read()), data_only=False)
     result = []
 
-    for name in wb.defined_names.names:
-        defined_name = wb.defined_names[name]
+    for defined_name in wb.defined_names.definedName:
+        name = defined_name.name
 
         try:
             destinations = list(defined_name.destinations)
