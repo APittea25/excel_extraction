@@ -15,6 +15,7 @@ if "expand_all" not in st.session_state:
 
 def toggle_expand():
     st.session_state.expand_all = not st.session_state.expand_all
+    st.experimental_rerun()
 
 if uploaded_files:
     st.button(
