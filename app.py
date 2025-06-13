@@ -40,6 +40,7 @@ if uploaded_files:
     all_named_cell_map = {}
     all_named_ref_info = {}
     file_display_names = {}
+    named_ref_formulas = {}
 
     for uploaded_file in uploaded_files:
         display_name = uploaded_file.name
@@ -160,6 +161,7 @@ if uploaded_files:
 
     for (name, (file_name, sheet_name, coord_set, min_row, min_col)) in all_named_ref_info.items():
         entries = []
+        formulas_for_graph = []
 
         try:
             file_bytes = file_display_names[file_name]
@@ -189,6 +191,7 @@ if uploaded_files:
 
                         if formula:
                             remapped = remap_formula(formula, file_name, sheet_name)
+                            formulas_for_graph.append(remapped)
                         elif cell.value is not None:
                             formula = f"[value] {str(cell.value)}"
                             remapped = formula
@@ -203,7 +206,38 @@ if uploaded_files:
         except Exception as e:
             entries.append(f"❌ Error accessing `{name}` in `{sheet_name}`: {e}")
 
+        named_ref_formulas[name] = formulas_for_graph
+
         with st.expander(f"📌 Named Range: `{name}` → `{sheet_name}` in `{file_name}`"):
             st.code("\n".join(entries), language="text")
+
+    # Dependency Graph
+    st.subheader("🔗 Dependency Graph")
+    dot = graphviz.Digraph()
+    dot.attr(compound='true', rankdir='LR')
+
+    grouped = defaultdict(list)
+    for name, (file, *_rest) in all_named_ref_info.items():
+        grouped[file].append(name)
+
+    dependencies = defaultdict(set)
+    for target, formulas in named_ref_formulas.items():
+        joined = " ".join(formulas)
+        for source in named_ref_formulas:
+            if source != target and re.search(rf"\b{re.escape(source)}\b", joined):
+                dependencies[target].add(source)
+
+    for i, (file_name, nodes) in enumerate(grouped.items()):
+        with dot.subgraph(name=f"cluster_{i}") as c:
+            c.attr(label=file_name)
+            c.attr(style='filled', color='lightgrey')
+            for node in nodes:
+                c.node(node)
+
+    for target, sources in dependencies.items():
+        for source in sources:
+            dot.edge(source, target)
+
+    st.graphviz_chart(dot)
 else:
     st.info("⬆️ Upload one or more `.xlsx` files to begin.")
