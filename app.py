@@ -93,9 +93,9 @@ if uploaded_files:
                                             if sr == min_r and er == max_r and sc == min_c and ec == max_c:
                                                 return f"{nr_name}"
                                             elif sc == ec and sc == min_c and ec == max_c:
-                                                return f"{nr_name}[][ {sr - min_r + 1}:{er - min_r + 1} ]"
+                                                return f"{nr_name}[{sr - min_r + 1}:{er - min_r + 1}][1]"
                                             elif sr == er and sr == min_r and er == max_r:
-                                                return f"{nr_name}[{sc - min_c + 1}:{ec - min_c + 1}][]"
+                                                return f"{nr_name}[1][{sc - min_c + 1}:{ec - min_c + 1}]"
                                             else:
                                                 return f"{nr_name}[{sr - min_r + 1}:{er - min_r + 1}][{sc - min_c + 1}:{ec - min_c + 1}]"
                                     return full_ref
