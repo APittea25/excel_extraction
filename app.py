@@ -3,6 +3,7 @@ from openpyxl import load_workbook
 from openpyxl.utils import column_index_from_string, get_column_letter
 from io import BytesIO
 import re
+import os
 
 st.set_page_config(page_title="Named Range Formula Remapper", layout="wide")
 st.title("\U0001F4D8 Named Range Coordinates + Formula Remapping")
@@ -47,6 +48,16 @@ if uploaded_files:
                 except:
                     continue
 
+    def extract_workbook_name(path_str):
+        # Extract workbook name from path string like: 'C:\\Users\\...\\[Workbook.xlsx]Sheet'!
+        match = re.search(r"\\([^\\\[]+\.xlsx)\]", path_str)
+        if match:
+            return match.group(1)
+        match = re.search(r"\[([^\]]+\.xlsx)\]", path_str)
+        if match:
+            return match.group(1)
+        return "UnknownWorkbook"
+
     def remap_formula(formula, current_file, current_sheet):
         if not formula:
             return ""
@@ -71,7 +82,9 @@ if uploaded_files:
             for (fname, sname, r, c), (name, r_off, c_off) in all_named_cell_map.items():
                 if sname == sheet_name and r == row and c == col:
                     return f"[{fname}]{name}[{r_off}][{c_off}]"
-            return f"[{default_file}]{sheet_name}!{addr}"
+
+            wb_name = extract_workbook_name(ref)
+            return f"[{wb_name}]{sheet_name}!{addr}"
 
         def remap_range(ref, default_file, default_sheet):
             if "!" in ref:
@@ -101,7 +114,8 @@ if uploaded_files:
                             label_set.add(f"[{fname}]{name}[{r_off}][{c_off}]")
                             break
                     else:
-                        label_set.add(f"[{default_file}]{sheet_name}!{cell_address(row, col)}")
+                        wb_name = extract_workbook_name(ref)
+                        label_set.add(f"[{wb_name}]{sheet_name}!{cell_address(row, col)}")
             return ", ".join(sorted(label_set)) if label_set else ref
 
         pattern = r"(?<![A-Za-z0-9_])(?:[A-Za-z0-9_]+!)?\$?[A-Z]{1,3}\$?[0-9]{1,7}(?::\$?[A-Z]{1,3}\$?[0-9]{1,7})?"
