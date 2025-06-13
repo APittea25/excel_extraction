@@ -1,10 +1,11 @@
 import streamlit as st
 from openpyxl import load_workbook
 from io import BytesIO
+import re
 
 st.set_page_config(page_title="Named Range Inspector", layout="wide")
 st.title("📊 Excel Named Range Inspector")
-st.write("Upload one or more Excel files to inspect named ranges, their location, and formulas.")
+st.write("Upload one or more Excel files to inspect named ranges, their location, and formulas across all referenced cells.")
 
 uploaded_files = st.file_uploader("Upload Excel files", type=['xlsx'], accept_multiple_files=True)
 
@@ -12,11 +13,14 @@ def extract_named_ranges(file, filename):
     wb = load_workbook(filename=BytesIO(file.read()), data_only=False)
     result = []
 
-    for defined_name in wb.defined_names.definedName:
-        name = defined_name.name
+    for name in wb.defined_names:
+        dn = wb.defined_names[name]
+
+        if dn.is_external or not dn.attr_text:
+            continue
 
         try:
-            destinations = list(defined_name.destinations)
+            destinations = list(dn.destinations)
         except Exception as e:
             result.append({
                 "Named Range": name,
@@ -27,15 +31,18 @@ def extract_named_ranges(file, filename):
             })
             continue
 
-        for sheet_name, cell_range in destinations:
+        for sheet_name, ref in destinations:
             try:
                 ws = wb[sheet_name]
+                coord = ref.replace("$", "").split("!")[-1]
                 formulas = []
 
-                for row in ws[cell_range]:
+                for row in ws[coord]:
                     for cell in row:
-                        if cell.data_type == 'f':
-                            formulas.append(cell.value)
+                        if isinstance(cell.value, str) and cell.value.startswith("="):
+                            formulas.append(cell.value.strip())
+                        elif cell.data_type == 'f':
+                            formulas.append(str(cell.value))
                         elif cell.value is not None:
                             formulas.append(f"[value] {cell.value}")
 
@@ -43,15 +50,16 @@ def extract_named_ranges(file, filename):
                     "Named Range": name,
                     "File": filename,
                     "Sheet": sheet_name,
-                    "Range": cell_range,
+                    "Range": coord,
                     "Formulas": formulas if formulas else ["(No formulas or values found)"]
                 })
+
             except Exception as e:
                 result.append({
                     "Named Range": name,
                     "File": filename,
                     "Sheet": sheet_name,
-                    "Range": cell_range,
+                    "Range": ref,
                     "Formulas": [f"Error accessing range: {str(e)}"]
                 })
 
