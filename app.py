@@ -39,7 +39,9 @@ if uploaded_files:
                     ws = wb[sheet_name]
                     coord = ref.replace("$", "").split("!")[-1]
                     cell_range = ws[coord] if ":" in coord else [[ws[coord]]]
-                    coords = {(cell.coordinate): (ri+1, ci+1) for ri, row in enumerate(cell_range) for ci, cell in enumerate(row)}
+                    min_row = min(cell.row for row in cell_range for cell in row)
+                    min_col = min(cell.column for row in cell_range for cell in row)
+                    coords = {(cell.coordinate): (cell.row - min_row + 1, cell.column - min_col + 1) for row in cell_range for cell in row}
                     named_ranges_map[defined_name] = {"sheet": sheet_name, "cells": coords}
                 except:
                     continue
