@@ -2,6 +2,7 @@ import streamlit as st
 from openpyxl import load_workbook
 from io import BytesIO
 import re
+import openpyxl
 
 st.set_page_config(page_title="Named Range Inspector", layout="wide")
 st.title("📊 Excel Named Range Inspector")
@@ -83,18 +84,21 @@ if uploaded_files:
                                 # Attempt replacement of any direct cell reference
                                 def replace_match(m):
                                     cell_ref = m.group(0).replace("$", "").upper()
-                                    col_letters = re.match(r"[A-Z]+", cell_ref).group()
-                                    row_numbers = re.match(r"[A-Z]+([0-9]+)", cell_ref).group(1)
-                                    ref_col = openpyxl.utils.column_index_from_string(col_letters)
-                                    ref_row = int(row_numbers)
+                                    try:
+                                        col_letters = re.match(r"[A-Z]+", cell_ref).group()
+                                        row_numbers = re.match(r"[A-Z]+([0-9]+)", cell_ref).group(1)
+                                        ref_col = openpyxl.utils.column_index_from_string(col_letters)
+                                        ref_row = int(row_numbers)
+                                    except Exception:
+                                        return m.group(0)
+
                                     for nr_name, nr_data in named_ranges_map.items():
                                         if nr_data["sheet"] != sheet_name:
                                             continue
                                         for coord, (r_offset, c_offset) in nr_data["cells"].items():
-                                            cell = openpyxl.utils.cell.coordinate_from_string(coord)
-                                            col = openpyxl.utils.column_index_from_string(cell[0])
-                                            row = cell[1]
-                                            if ref_row == row and ref_col == col:
+                                            col_str, row = openpyxl.utils.cell.coordinate_from_string(coord)
+                                            col = openpyxl.utils.column_index_from_string(col_str)
+                                            if row == ref_row and col == ref_col:
                                                 return f"{nr_name}[{r_offset}][{c_offset}]"
                                     return m.group(0)
 
