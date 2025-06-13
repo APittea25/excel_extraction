@@ -5,13 +5,13 @@ from io import BytesIO
 import re
 
 st.set_page_config(page_title="Named Range Formula Remapper", layout="wide")
-st.title("\ud83d\udcd8 Named Range Coordinates + Formula Remapping")
+st.title("📘 Named Range Coordinates + Formula Remapping")
 
-uploaded_files = st.file_uploader("\ud83d\udcc2 Upload Excel files", type=["xlsx"], accept_multiple_files=True)
+uploaded_files = st.file_uploader("📂 Upload Excel files", type=["xlsx"], accept_multiple_files=True)
 
 if uploaded_files:
     for uploaded_file in uploaded_files:
-        st.header(f"\ud83d\udcc4 File: `{uploaded_file.name}`")
+        st.header(f"📄 File: `{uploaded_file.name}`")
         wb = load_workbook(BytesIO(uploaded_file.read()), data_only=False)
 
         named_cell_map = {}
@@ -99,8 +99,7 @@ if uploaded_files:
                             label_set.add(f"{sheet_name}!{cell_address(row, col)}")
                 return ", ".join(sorted(label_set)) if label_set else ref
 
-            # Updated pattern to catch range references and function arguments
-            pattern = r"(?:[A-Za-z0-9_]+!)?\$?[A-Z]{1,3}\$?[0-9]{1,7}(?::\$?[A-Z]{1,3}\$?[0-9]{1,7})?"
+            pattern = r"(?<![A-Za-z0-9_])(?:[A-Za-z0-9_]+!)?\$?[A-Z]{1,3}\$?[0-9]{1,7}(?::\$?[A-Z]{1,3}\$?[0-9]{1,7})?"
             matches = list(re.finditer(pattern, formula))
             replaced_formula = formula
             offset = 0
@@ -147,9 +146,9 @@ if uploaded_files:
 
                             entries.append(f"{label} = {formula}\n → {remapped}")
                 except Exception as e:
-                    entries.append(f"\u274c Error accessing `{ref}`: {e}")
+                    entries.append(f"❌ Error accessing `{ref}`: {e}")
 
-            with st.expander(f"\ud83d\udccc Named Range: `{name}` → {ref}"):
+            with st.expander(f"📌 Named Range: `{name}` → {ref}"):
                 st.code("\n".join(entries), language="text")
 else:
-    st.info("\u2b06\ufe0f Upload one or more `.xlsx` files to begin.")
+    st.info("⬆️ Upload one or more `.xlsx` files to begin.")
