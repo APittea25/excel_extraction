@@ -1,6 +1,5 @@
 import streamlit as st
 from openpyxl import load_workbook
-from openpyxl.workbook.defined_name import DefinedName
 from io import BytesIO
 
 st.set_page_config(page_title="Named Range Inspector", layout="wide")
@@ -13,9 +12,20 @@ def extract_named_ranges(file, filename):
     wb = load_workbook(filename=BytesIO(file.read()), data_only=False)
     result = []
 
-    for defined_name in wb.defined_names:
+    for defined_name in wb.defined_names.definedName:
         name = defined_name.name
-        destinations = list(defined_name.destinations)
+
+        try:
+            destinations = list(defined_name.destinations)
+        except Exception as e:
+            result.append({
+                "Named Range": name,
+                "File": filename,
+                "Sheet": "(Unknown)",
+                "Range": "(Invalid)",
+                "Formulas": [f"Error parsing named range destinations: {str(e)}"]
+            })
+            continue
 
         for sheet_name, cell_range in destinations:
             try:
