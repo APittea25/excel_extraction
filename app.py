@@ -94,11 +94,20 @@ if uploaded_files:
 
                                     for nr_name, nr_data in named_ranges_map.items():
                                         if nr_data["sheet"] != sheet_name:
+                                            min_r = min(cell[0] for cell in [openpyxl.utils.cell.coordinate_to_tuple(c) for c in nr_data["cells"].keys()])
+                                            max_r = max(cell[0] for cell in [openpyxl.utils.cell.coordinate_to_tuple(c) for c in nr_data["cells"].keys()])
+                                            min_c = min(cell[1] for cell in [openpyxl.utils.cell.coordinate_to_tuple(c) for c in nr_data["cells"].keys()])
+                                            max_c = max(cell[1] for cell in [openpyxl.utils.cell.coordinate_to_tuple(c) for c in nr_data["cells"].keys()])
+                                            if min_r <= ref_row <= max_r and min_c <= ref_col <= max_c:
+                                                rel_r = ref_row - min_r + 1
+                                                rel_c = ref_col - min_c + 1
+                                                return f"{nr_name}[{rel_r}][{rel_c}]"
+                                        if nr_data["sheet"] != sheet_name:
                                             continue
                                         for coord, (r_offset, c_offset) in nr_data["cells"].items():
                                             col_str, row = openpyxl.utils.cell.coordinate_from_string(coord)
                                             col = openpyxl.utils.column_index_from_string(col_str)
-                                            if row == ref_row and col == ref_col:
+                                            if ref_row == row and ref_col == col:
                                                 return f"{nr_name}[{r_offset}][{c_offset}]"
                                     return m.group(0)
 
