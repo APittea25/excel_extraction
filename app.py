@@ -49,10 +49,10 @@ if uploaded_files:
                     continue
 
     def extract_workbook_name(path_str):
-        match = re.search(r"\\([^\\\[]+\.xlsx)\]", path_str)
+        match = re.search(r"\\([^\\\[]+\\.xlsx)\]", path_str)
         if match:
             return match.group(1)
-        match = re.search(r"\[([^\]]+\.xlsx)\]", path_str)
+        match = re.search(r"\[([^\]]+\\.xlsx)\]", path_str)
         if match:
             return match.group(1)
         return "UnknownWorkbook"
@@ -109,7 +109,6 @@ if uploaded_files:
                 addr = ref
 
             if ref.startswith("["):
-                # Skip remapping for unknown external workbook references
                 if extract_workbook_name(ref.split("!")[0]) == "UnknownWorkbook":
                     return ref
 
@@ -138,7 +137,7 @@ if uploaded_files:
                         label_set.add(f"[{external_file}]{sheet_name}!{cell_address(row, col)}")
             return ", ".join(sorted(label_set)) if label_set else ref
 
-        pattern = r"(?<![A-Za-z0-9_])(?:\[[^\]]+\])?[A-Za-z0-9_]+!\$?[A-Z]{1,3}\$?[0-9]{1,7}(?::\$?[A-Z]{1,3}\$?[0-9]{1,7})?"
+        pattern = r"(?<![A-Za-z0-9_])(?:\[[^\]]+\])?[A-Za-z0-9_]+!\$?[A-Z]{1,3}\$?[0-9]{1,7}(?::\$?[A-Z]{1,3}\$?[0-9]{1,7})?|(?<![A-Za-z0-9_])\$?[A-Z]{1,3}\$?[0-9]{1,7}(?::\$?[A-Z]{1,3}\$?[0-9]{1,7})?"
         matches = list(re.finditer(pattern, formula))
         replaced_formula = formula
         offset = 0
@@ -157,7 +156,11 @@ if uploaded_files:
             file_bytes = file_display_names[file_name]
             wb = load_workbook(BytesIO(file_bytes.getvalue()), data_only=False)
             ws = wb[sheet_name]
-            ref_range = f"{get_column_letter(min([c for (_, c) in coord_set]))}{min([r for (r, _) in coord_set])}:{get_column_letter(max([c for (_, c) in coord_set]))}{max([r for (r, _) in coord_set])}"
+            min_col_letter = get_column_letter(min([c for (_, c) in coord_set]))
+            max_col_letter = get_column_letter(max([c for (_, c) in coord_set]))
+            min_row_num = min([r for (r, _) in coord_set])
+            max_row_num = max([r for (r, _) in coord_set])
+            ref_range = f"{min_col_letter}{min_row_num}:{max_col_letter}{max_row_num}"
             cell_range = ws[ref_range] if ":" in ref_range else [[ws[ref_range]]]
 
             for row in cell_range:
@@ -191,7 +194,7 @@ if uploaded_files:
         except Exception as e:
             entries.append(f"❌ Error accessing `{name}` in `{sheet_name}`: {e}")
 
-        with st.expander(f"\U0001F4CC Named Range: `{name}` → `{sheet_name}` in `{file_name}`"):
+        with st.expander(f"📌 Named Range: `{name}` → `{sheet_name}!{ref_range}` in `{file_name}`"):
             st.code("\n".join(entries), language="text")
 else:
     st.info("⬆️ Upload one or more `.xlsx` files to begin.")
