@@ -71,9 +71,6 @@ if uploaded_files:
                             elif cell.value is not None:
                                 formulas.append(f"[value] {cell.value}")
 
-                            break  # Only process top-left cell
-                        break
-
                     result.append({
                         "Named Range": name,
                         "File": filename,
