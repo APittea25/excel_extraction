@@ -5,13 +5,13 @@ from io import BytesIO
 import re
 
 st.set_page_config(page_title="Named Range Formula Remapper", layout="wide")
-st.title("📘 Named Range Coordinates + Formula Remapping")
+st.title("\ud83d\udcd8 Named Range Coordinates + Formula Remapping")
 
-uploaded_files = st.file_uploader("📂 Upload Excel files", type=["xlsx"], accept_multiple_files=True)
+uploaded_files = st.file_uploader("\ud83d\udcc2 Upload Excel files", type=["xlsx"], accept_multiple_files=True)
 
 if uploaded_files:
     for uploaded_file in uploaded_files:
-        st.header(f"📄 File: `{uploaded_file.name}`")
+        st.header(f"\ud83d\udcc4 File: `{uploaded_file.name}`")
         wb = load_workbook(BytesIO(uploaded_file.read()), data_only=False)
 
         named_cell_map = {}
@@ -83,8 +83,10 @@ if uploaded_files:
                 m2 = re.match(r"([A-Z]+)([0-9]+)", end)
                 if not m1 or not m2:
                     return ref
-                start_col, start_row = column_index_from_string(m1[1]), int(m1[2])
-                end_col, end_row = column_index_from_string(m2[1]), int(m2[2])
+                start_col = column_index_from_string(m1.group(1))
+                start_row = int(m1.group(2))
+                end_col = column_index_from_string(m2.group(1))
+                end_row = int(m2.group(2))
 
                 label_set = set()
                 for row in range(start_row, end_row + 1):
@@ -97,8 +99,18 @@ if uploaded_files:
                             label_set.add(f"{sheet_name}!{cell_address(row, col)}")
                 return ", ".join(sorted(label_set)) if label_set else ref
 
+            # Updated pattern to catch range references and function arguments
             pattern = r"(?:[A-Za-z0-9_]+!)?\$?[A-Z]{1,3}\$?[0-9]{1,7}(?::\$?[A-Z]{1,3}\$?[0-9]{1,7})?"
-            return re.sub(pattern, lambda m: remap_range(m.group(0), current_sheet), formula)
+            matches = list(re.finditer(pattern, formula))
+            replaced_formula = formula
+            offset = 0
+            for match in matches:
+                raw = match.group(0)
+                remapped = remap_range(raw, current_sheet)
+                start, end = match.start() + offset, match.end() + offset
+                replaced_formula = replaced_formula[:start] + remapped + replaced_formula[end:]
+                offset += len(remapped) - len(raw)
+            return replaced_formula
 
         # Step 3: Display remapped formulas per named reference
         for name in wb.defined_names:
@@ -135,9 +147,9 @@ if uploaded_files:
 
                             entries.append(f"{label} = {formula}\n → {remapped}")
                 except Exception as e:
-                    entries.append(f"❌ Error accessing `{ref}`: {e}")
+                    entries.append(f"\u274c Error accessing `{ref}`: {e}")
 
-            with st.expander(f"📌 Named Range: `{name}` → {ref}"):
+            with st.expander(f"\ud83d\udccc Named Range: `{name}` → {ref}"):
                 st.code("\n".join(entries), language="text")
 else:
-    st.info("⬆️ Upload one or more `.xlsx` files to begin.")
+    st.info("\u2b06\ufe0f Upload one or more `.xlsx` files to begin.")
