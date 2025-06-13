@@ -7,6 +7,16 @@ st.set_page_config(page_title="Named Range Inspector", layout="wide")
 st.title("📊 Excel Named Range Inspector")
 st.write("Upload one or more Excel files to inspect named ranges, their location, and formulas across all referenced cells.")
 
+# Add print button for PDF generation
+st.markdown("""
+    <script>
+    function printPage() {
+        window.print();
+    }
+    </script>
+    <button onclick="printPage()">🖨️ Print Page</button>
+""", unsafe_allow_html=True)
+
 uploaded_files = st.file_uploader("Upload Excel files", type=['xlsx'], accept_multiple_files=True)
 
 def extract_named_ranges(file, filename):
@@ -76,10 +86,10 @@ if uploaded_files:
         results = extract_named_ranges(uploaded_file, uploaded_file.name)
 
         for item in results:
-            with st.expander(f"📌 Named Range: {item['Named Range']}"):
-                st.write(f"**Sheet:** {item['Sheet']}")
-                st.write(f"**Range:** {item['Range']}")
-                st.write("**Formulas / Values:**")
-                st.code("\n".join(item["Formulas"]), language="excel")
+            st.markdown(f"### 📌 Named Range: `{item['Named Range']}`")
+            st.write(f"**Sheet:** {item['Sheet']}")
+            st.write(f"**Range:** {item['Range']}")
+            st.write("**Formulas / Values:**")
+            st.code("\n".join(item["Formulas"]), language="excel")
 else:
     st.info("Upload one or more .xlsx files to begin analysis.")
