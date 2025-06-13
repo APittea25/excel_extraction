@@ -13,13 +13,8 @@ def extract_named_ranges(file, filename):
     wb = load_workbook(filename=BytesIO(file.read()), data_only=False)
     result = []
 
-    for name in wb.defined_names.defined_names:
-        defined_name = wb.defined_names[name]
-
-        # Skip if not referring to a range (e.g., constant)
-        if not isinstance(defined_name, DefinedName):
-            continue
-
+    for defined_name in wb.defined_names:
+        name = defined_name.name
         destinations = list(defined_name.destinations)
 
         for sheet_name, cell_range in destinations:
