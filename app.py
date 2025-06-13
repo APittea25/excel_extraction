@@ -68,7 +68,7 @@ if uploaded_files:
             return match.group(1)
         match = re.search(r"\[(\d+)\]", path_str)
         if match:
-            ref_num = match.group(0)  # e.g. "[1]"
+            ref_num = match.group(0)
             return external_refs.get(ref_num, ref_num)
         return "UnknownWorkbook"
 
@@ -239,8 +239,16 @@ if uploaded_files:
         dot = graphviz.Digraph()
         dot.attr(rankdir="LR")
 
-        for node in all_named_ref_info:
-            dot.node(node)
+        clusters = defaultdict(list)
+        for name, (file_name, *_rest) in all_named_ref_info.items():
+            clusters[file_name].append(name)
+
+        for i, (file_name, names) in enumerate(clusters.items()):
+            with dot.subgraph(name=f"cluster_{i}") as c:
+                c.attr(label=file_name, style='filled', color='lightgrey')
+                for name in names:
+                    c.node(name)
+
         for src, targets in dependencies.items():
             for tgt in targets:
                 dot.edge(src, tgt)
