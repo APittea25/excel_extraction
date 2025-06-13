@@ -61,8 +61,11 @@ if uploaded_files:
                         for cell in row:
                             if cell.data_type == 'f':
                                 try:
-                                    if hasattr(cell, 'formula') and isinstance(cell.formula, str):
-                                        formulas.append(cell.formula.strip())
+                                    if hasattr(cell, 'formula'):
+                                        if hasattr(cell.formula, 'text'):
+                                            formulas.append(cell.formula.text.strip())
+                                        elif isinstance(cell.formula, str):
+                                            formulas.append(cell.formula.strip())
                                     elif isinstance(cell.value, str):
                                         formulas.append(cell.value.strip())
                                     else:
