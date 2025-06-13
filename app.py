@@ -17,6 +17,7 @@ if uploaded_files:
         wb = load_workbook(workbook_bytes, data_only=False)
 
         named_ranges_map = {}  # Structure: {(sheet_name, row, col): (name, r_offset, c_offset)}
+        named_range_definitions = {}  # Structure: {name: (workbook, sheet, ref)}
 
         # Build named ranges map
         for name in wb.defined_names:
@@ -34,6 +35,7 @@ if uploaded_files:
                         for cell in row:
                             key = (sheet_name, cell.row, cell.column)
                             named_ranges_map[key] = (name, cell.row - min_row + 1, cell.column - min_col + 1)
+                    named_range_definitions[name] = (uploaded_file.name, sheet_name, coord)
                 except:
                     continue
 
@@ -88,7 +90,8 @@ if uploaded_files:
                 except Exception as e:
                     entries.append(f"Error accessing {ref}: {e}")
 
-            with st.expander(f"\U0001F4CC Named Range: {name} [{uploaded_file.name}][{sheet_name}][{ref}]"):
+            workbook_name, sheet_name_for_range, ref_string = named_range_definitions.get(name, (uploaded_file.name, sheet_name, ref))
+            with st.expander(f"\U0001F4CC Named Range: {name} [{workbook_name}][{sheet_name_for_range}][{ref_string}]"):
                 st.write("**Cell Coordinates, Raw Formula/Value, and Reference Formula:**")
                 st.code("\n".join(entries), language="text")
 else:
