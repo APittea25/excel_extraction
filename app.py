@@ -59,7 +59,7 @@ if uploaded_files:
 
                     for row in cell_range:
                         for cell in row:
-                        raw_formula = None
+                            raw_formula = None
 
                         if isinstance(cell.value, str) and cell.value.startswith("="):
                             raw_formula = cell.value.strip()
