@@ -5,7 +5,7 @@ import re
 import openpyxl
 
 st.set_page_config(page_title="Named Range Inspector", layout="wide")
-st.title("📊 Excel Named Range Inspector")
+st.title("\U0001F4CA Excel Named Range Inspector")
 st.write("Upload one or more Excel files to inspect named ranges, their location, and formulas across all referenced cells.")
 
 uploaded_files = st.file_uploader("Upload Excel files", type=['xlsx'], accept_multiple_files=True)
@@ -96,8 +96,6 @@ if uploaded_files:
                                         return m.group(0)
 
                                     for nr_name, nr_data in named_ranges_map.items():
-                                        if nr_data["sheet"] != sheet_name:
-                                            continue
                                         # First try exact match
                                         for coord, (r_offset, c_offset) in nr_data["cells"].items():
                                             col_str, row = openpyxl.utils.cell.coordinate_from_string(coord)
@@ -152,11 +150,11 @@ if uploaded_files:
         return result
 
     for uploaded_file in uploaded_files:
-        st.header(f"🔍 File: {uploaded_file.name}")
+        st.header(f"\U0001F50D File: {uploaded_file.name}")
         results = extract_named_ranges(uploaded_file, uploaded_file.name)
 
         for item in results:
-            with st.expander(f"📌 Named Range: {item['Named Range']}", expanded=st.session_state.expand_all):
+            with st.expander(f"\U0001F4CC Named Range: {item['Named Range']}", expanded=st.session_state.expand_all):
                 st.write(f"**Sheet:** {item['Sheet']}")
                 st.write(f"**Range:** {item['Range']}")
                 st.write("**Formulas / Values:**")
