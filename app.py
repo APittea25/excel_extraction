@@ -1,15 +1,35 @@
 import streamlit as st
 from openpyxl import load_workbook
-import io
 import pandas as pd
+import io
 
-st.title("📘 Excel Named References Viewer")
+st.title("📘 Excel Named References + Formulas Viewer")
 
 uploaded_files = st.file_uploader(
-    "Upload one or more Excel files (.xlsx)", 
-    type=["xlsx"], 
+    "Upload one or more Excel files (.xlsx)",
+    type=["xlsx"],
     accept_multiple_files=True
 )
+
+def extract_formulas_in_range(wb, sheet_name, ref):
+    formulas = []
+    try:
+        sheet = wb[sheet_name]
+        cells = sheet[ref]  # could be a single cell or range
+
+        if isinstance(cells, tuple):
+            for row in cells:
+                for cell in row:
+                    if isinstance(cell.value, str) and cell.value.startswith("="):
+                        formulas.append(cell.value.strip())
+        else:
+            # Single cell
+            cell = cells
+            if isinstance(cell.value, str) and cell.value.startswith("="):
+                formulas.append(cell.value.strip())
+    except Exception as e:
+        formulas.append(f"(Error reading range: {e})")
+    return formulas
 
 def extract_named_references(wb, workbook_name):
     named_refs = []
@@ -20,11 +40,13 @@ def extract_named_references(wb, workbook_name):
             continue
 
         for sheet_title, ref in dn.destinations:
+            formulas = extract_formulas_in_range(wb, sheet_title, ref)
             named_refs.append({
                 "Workbook": workbook_name,
+                "Name": name,
                 "Sheet": sheet_title,
                 "Reference": ref,
-                "Name": name
+                "Formulas": "\n".join(formulas) if formulas else "(No formulas)"
             })
 
     return named_refs
@@ -42,9 +64,9 @@ if uploaded_files:
 
     if all_refs:
         df = pd.DataFrame(all_refs)
-        st.subheader("📋 Named References Summary")
+        st.subheader("📋 Named References with Formulas")
         st.dataframe(df)
     else:
-        st.info("No named references found in uploaded files.")
+        st.info("No named references found.")
 else:
-    st.info("⬆️ Upload one or more `.xlsx` files to begin.")
+    st.info("⬆️ Upload `.xlsx` files to begin.")
