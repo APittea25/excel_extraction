@@ -80,12 +80,12 @@ if uploaded_files:
 
                                 # Attempt replacement of any direct cell reference
                                 def replace_match(m):
-                                    cell_ref = m.group(0)
+                                    cell_ref = m.group(0).replace("$", "")
                                     for nr_name, nr_data in named_ranges_map.items():
                                         if nr_data["sheet"] == sheet_name and cell_ref in nr_data["cells"]:
                                             r, c = nr_data["cells"][cell_ref]
                                             return f"{nr_name}[{r}][{c}]"
-                                    return cell_ref
+                                    return m.group(0)
 
                                 raw_formula = re.sub(r"\b[A-Z]{1,3}[0-9]{1,7}\b", replace_match, raw_formula)
                                 formulas.append(raw_formula)
