@@ -1,6 +1,6 @@
 import streamlit as st
 from openpyxl import load_workbook
-from openpyxl.utils import column_index_from_string
+from openpyxl.utils import column_index_from_string, get_column_letter
 from io import BytesIO
 import re
 
@@ -14,13 +14,10 @@ if uploaded_files:
         st.header(f"📄 File: `{uploaded_file.name}`")
         wb = load_workbook(BytesIO(uploaded_file.read()), data_only=False)
 
-        # Map of: (sheet, row, col) -> (named_ref, row_offset, col_offset)
         named_cell_map = {}
-
-        # Named reference metadata: name -> (sheet, set of (row, col), top_left_row, top_left_col)
         named_ref_info = {}
 
-        # Build named cell lookup
+        # Step 1: Map all named references to cell positions
         for name in wb.defined_names:
             dn = wb.defined_names[name]
             if dn.is_external or not dn.attr_text:
@@ -46,37 +43,64 @@ if uploaded_files:
                 except:
                     continue
 
-        # Remapping function
+        # Step 2: Remapping logic
         def remap_formula(formula, current_sheet):
-            def replace_match(m):
-                raw = m.group(0)
-                if "!" in raw:
-                    sheet_part, addr = raw.split("!")
-                    target_sheet = sheet_part
-                else:
-                    target_sheet = current_sheet
-                    addr = raw
+            def cell_address(row, col):
+                return f"{get_column_letter(col)}{row}"
 
+            def remap_single_cell(ref, default_sheet):
+                if "!" in ref:
+                    sheet_name, addr = ref.split("!")
+                else:
+                    sheet_name = default_sheet
+                    addr = ref
                 addr = addr.replace("$", "").upper()
                 match = re.match(r"([A-Z]+)([0-9]+)", addr)
                 if not match:
-                    return raw
-
+                    return ref
                 col_str, row_str = match.groups()
                 row = int(row_str)
                 col = column_index_from_string(col_str)
-
-                key = (target_sheet, row, col)
+                key = (sheet_name, row, col)
                 if key in named_cell_map:
                     name, r_off, c_off = named_cell_map[key]
                     return f"{name}[{r_off}][{c_off}]"
                 else:
-                    return raw  # not inside any named reference
+                    return ref
 
-            # Only change plain cell refs or Sheet!Cell
-            return re.sub(r"(?:[A-Za-z0-9_]+!)?[A-Z]{1,3}[0-9]{1,7}", replace_match, formula)
+            def remap_range(ref, default_sheet):
+                if "!" in ref:
+                    sheet_name, addr = ref.split("!")
+                else:
+                    sheet_name = default_sheet
+                    addr = ref
+                addr = addr.replace("$", "").upper()
+                if ":" not in addr:
+                    return remap_single_cell(ref, default_sheet)
 
-        # Display remapped formulas
+                start, end = addr.split(":")
+                m1 = re.match(r"([A-Z]+)([0-9]+)", start)
+                m2 = re.match(r"([A-Z]+)([0-9]+)", end)
+                if not m1 or not m2:
+                    return ref
+                start_col, start_row = column_index_from_string(m1[1]), int(m1[2])
+                end_col, end_row = column_index_from_string(m2[1]), int(m2[2])
+
+                label_set = set()
+                for row in range(start_row, end_row + 1):
+                    for col in range(start_col, end_col + 1):
+                        key = (sheet_name, row, col)
+                        if key in named_cell_map:
+                            name, r_off, c_off = named_cell_map[key]
+                            label_set.add(f"{name}[{r_off}][{c_off}]")
+                        else:
+                            label_set.add(f"{sheet_name}!{cell_address(row, col)}")
+                return ", ".join(sorted(label_set)) if label_set else ref
+
+            pattern = r"(?:[A-Za-z0-9_]+!)?\$?[A-Z]{1,3}\$?[0-9]{1,7}(?::\$?[A-Z]{1,3}\$?[0-9]{1,7})?"
+            return re.sub(pattern, lambda m: remap_range(m.group(0), current_sheet), formula)
+
+        # Step 3: Display remapped formulas per named reference
         for name in wb.defined_names:
             dn = wb.defined_names[name]
             if dn.is_external or not dn.attr_text:
@@ -99,7 +123,6 @@ if uploaded_files:
                             col_offset = cell.column - min_col + 1
                             label = f"{name}[{row_offset}][{col_offset}]"
 
-                            # Determine raw content
                             if isinstance(cell.value, str) and cell.value.startswith("="):
                                 formula = cell.value.strip()
                                 remapped = remap_formula(formula, sheet_name)
@@ -117,4 +140,4 @@ if uploaded_files:
             with st.expander(f"📌 Named Range: `{name}` → {ref}"):
                 st.code("\n".join(entries), language="text")
 else:
-    st.info("⬆️ Upload `.xlsx` files to begin.")
+    st.info("⬆️ Upload one or more `.xlsx` files to begin.")
