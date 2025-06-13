@@ -19,17 +19,7 @@ def extract_named_ranges(file, filename):
         if dn.is_external or not dn.attr_text:
             continue
 
-        try:
-            destinations = list(dn.destinations)
-        except Exception as e:
-            result.append({
-                "Named Range": name,
-                "File": filename,
-                "Sheet": "(Unknown)",
-                "Range": "(Invalid)",
-                "Formulas": [f"Error parsing named range destinations: {str(e)}"]
-            })
-            continue
+        destinations = list(dn.destinations)
 
         for sheet_name, ref in destinations:
             try:
@@ -37,7 +27,22 @@ def extract_named_ranges(file, filename):
                 coord = ref.replace("$", "").split("!")[-1]
                 formulas = []
 
-                for row in ws[coord]:
+                # Handle single cell or range
+                try:
+                    cell_range = ws[coord]
+                    if not isinstance(cell_range, (tuple, list)):
+                        cell_range = [[cell_range]]
+                except Exception as e:
+                    result.append({
+                        "Named Range": name,
+                        "File": filename,
+                        "Sheet": sheet_name,
+                        "Range": coord,
+                        "Formulas": [f"Error reading cells: {str(e)}"]
+                    })
+                    continue
+
+                for row in cell_range:
                     for cell in row:
                         if isinstance(cell.value, str) and cell.value.startswith("="):
                             formulas.append(cell.value.strip())
