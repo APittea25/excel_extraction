@@ -70,15 +70,14 @@ if uploaded_files:
                 sheet_part, addr = ref.split("!")
                 if sheet_part.startswith("["):
                     external_file = extract_workbook_name(sheet_part)
+                    if external_file == "UnknownWorkbook":
+                        return ref
                     sheet_name = sheet_part.split("]")[-1]
                 else:
                     sheet_name = sheet_part
             else:
                 sheet_name = default_sheet
                 addr = ref
-
-            if external_file == "UnknownWorkbook":
-                return ref
 
             addr = addr.replace("$", "").upper()
             match = re.match(r"([A-Z]+)([0-9]+)", addr)
@@ -100,15 +99,14 @@ if uploaded_files:
                 sheet_part, addr = ref.split("!")
                 if sheet_part.startswith("["):
                     external_file = extract_workbook_name(sheet_part)
+                    if external_file == "UnknownWorkbook":
+                        return ref
                     sheet_name = sheet_part.split("]")[-1]
                 else:
                     sheet_name = sheet_part
             else:
                 sheet_name = default_sheet
                 addr = ref
-
-            if external_file == "UnknownWorkbook":
-                return ref
 
             addr = addr.replace("$", "").upper()
             if ":" not in addr:
@@ -192,3 +190,4 @@ if uploaded_files:
             st.code("\n".join(entries), language="text")
 else:
     st.info("⬆️ Upload one or more `.xlsx` files to begin.")
+
