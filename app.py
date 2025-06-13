@@ -7,20 +7,16 @@ import os
 from collections import defaultdict
 import graphviz
 from fpdf import FPDF
+import tempfile
+from PIL import Image
 
 st.set_page_config(page_title="Named Range Formula Remapper", layout="wide")
 st.title("\U0001F4D8 Named Range Coordinates + Formula Remapping")
 
-# --- Force expanders open and print all content nicely ---
+# --- Force expanders open ---
 st.markdown("""
     <style>
-        @media print {
-            html, body, [data-testid="stAppViewContainer"], [data-testid="stVerticalBlock"] {
-                overflow: visible !important;
-                height: auto !important;
-            }
-            details { display: block !important; }
-        }
+        details { display: block !important; }
     </style>
     <script>
     window.addEventListener('load', function() {
@@ -48,6 +44,7 @@ for i in range(1, 10):
 uploaded_files = st.file_uploader("\U0001F4C2 Upload Excel files", type=["xlsx"], accept_multiple_files=True)
 
 pdf_content = []
+graph_dot = None
 
 if uploaded_files:
     all_named_cell_map = {}
@@ -97,7 +94,7 @@ if uploaded_files:
         def remap_single_cell(ref, default_file, default_sheet):
             if "!" in ref:
                 sheet_part, addr = ref.split("!")
-                match = re.match(r"\\[(\\d+)\\]", sheet_part)
+                match = re.match(r"\[(\d+)\]", sheet_part)
                 if match:
                     external_ref = match.group(0)
                     external_file = external_refs.get(external_ref, external_ref)
@@ -124,7 +121,7 @@ if uploaded_files:
 
         def remap_range(ref, default_file, default_sheet):
             if ref.startswith("["):
-                match = re.match(r"\\[(\\d+)\\]", ref)
+                match = re.match(r"\[(\d+)\]", ref)
                 if match:
                     external_ref = match.group(0)
                     external_file = external_refs.get(external_ref, external_ref)
@@ -161,7 +158,7 @@ if uploaded_files:
                         label_set.add(f"[{default_file}]{sheet_name}!{cell_address(row, col)}")
             return ", ".join(sorted(label_set))
 
-        pattern = r"(?<![A-Za-z0-9_])(?:\\[[^\\]]+\\])?[A-Za-z0-9_]+!\\$?[A-Z]{1,3}\\$?[0-9]{1,7}(?::\\$?[A-Z]{1,3}\\$?[0-9]{1,7})?|(?<![A-Za-z0-9_])\\$?[A-Z]{1,3}\\$?[0-9]{1,7}(?::\\$?[A-Z]{1,3}\\$?[0-9]{1,7})?"
+        pattern = r"(?<![A-Za-z0-9_])(?:\[[^\]]+\])?[A-Za-z0-9_]+!\$?[A-Z]{1,3}\$?[0-9]{1,7}(?::\$?[A-Z]{1,3}\$?[0-9]{1,7})?|(?<![A-Za-z0-9_])\$?[A-Z]{1,3}\$?[0-9]{1,7}(?::\$?[A-Z]{1,3}\$?[0-9]{1,7})?"
         matches = list(re.finditer(pattern, formula))
         replaced_formula = formula
         offset = 0
@@ -206,7 +203,7 @@ if uploaded_files:
                         remapped = formula
 
                     entries.append(f"{label} = {formula}\n → {remapped}")
-                    pdf_content.append(f"{label} = {formula} -> {remapped}\n")
+                    pdf_content.append(f"{label} = {formula} → {remapped}\n")
 
             with st.expander(f"📌 Named Range: `{name}` → `{sheet_name}!{ref_range}` in `{file_name}`"):
                 st.code("\n".join(entries), language="text")
@@ -214,14 +211,46 @@ if uploaded_files:
         except Exception as e:
             st.error(f"❌ Error processing {name} in {sheet_name}: {e}")
 
-    # Downloadable PDF Export
+    # --- Graphviz Dependency Graph ---
+    dependencies = defaultdict(list)
+    label_sources = list(all_named_ref_info.keys())
+    for label in label_sources:
+        formula_lines = [line for line in pdf_content if line.startswith(label)]
+        formula_text = " ".join(formula_lines)
+        for other in label_sources:
+            if other != label and other in formula_text:
+                dependencies[label].append(other)
+
+    dot = graphviz.Digraph()
+    dot.attr(rankdir="LR")
+    for label in label_sources:
+        dot.node(label)
+    for tgt, srcs in dependencies.items():
+        for src in srcs:
+            dot.edge(src, tgt)
+
+    st.subheader("📊 Dependency Graph")
+    st.graphviz_chart(dot)
+
+    # Save graph to temporary image
+    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
+        dot.render(tmpfile.name, format="png", cleanup=False)
+        graph_image_path = tmpfile.name + ".png"
+
+    # PDF Export
     if st.button("📄 Export as PDF"):
         pdf = FPDF()
         pdf.set_auto_page_break(auto=True, margin=15)
         pdf.add_page()
         pdf.set_font("Arial", size=10)
+
         for line in pdf_content:
             pdf.multi_cell(0, 5, line)
+
+        if os.path.exists(graph_image_path):
+            pdf.add_page()
+            pdf.image(graph_image_path, x=10, y=10, w=180)
+
         st.download_button("Download PDF", data=pdf.output(dest="S").encode("latin1"), file_name="remapped_formulas.pdf", mime="application/pdf")
 
 else:
