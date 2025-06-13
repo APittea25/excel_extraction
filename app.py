@@ -4,7 +4,7 @@ from io import BytesIO
 import re
 import openpyxl
 
-st.set_page_config(page_title="Named Range Cell Coordinates", layout="wide")
+st.set_page_config(page_title="Named Range Coordinate Extractor", layout="wide")
 st.title("\U0001F4C2 Named Range Coordinate Extractor")
 st.write("Upload one or more Excel files. For each named range, the app will display all cell coordinates in the form of [WorkbookName][SheetName]Cell[row][col], the associated formula or value, and a mapped reference using named ranges if applicable.")
 
@@ -30,13 +30,15 @@ if uploaded_files:
                     cell_range = ws[coord] if ":" in coord else [[ws[coord]]]
                     min_row = min(cell.row for row in cell_range for cell in row)
                     min_col = min(cell.column for row in cell_range for cell in row)
+                    max_row = max(cell.row for row in cell_range for cell in row)
+                    max_col = max(cell.column for row in cell_range for cell in row)
                     cell_coords = set()
                     for row in cell_range:
                         for cell in row:
                             key = (sheet_name, cell.row, cell.column)
                             named_ranges_map[key] = (name, cell.row - min_row + 1, cell.column - min_col + 1)
                             cell_coords.add((cell.row, cell.column))
-                    named_range_definitions[name] = (uploaded_file.name, sheet_name, coord, cell_coords, min_row, min_col, max(cell.row for row in cell_range for cell in row), max(cell.column for row in cell_range for cell in row))
+                    named_range_definitions[name] = (uploaded_file.name, sheet_name, coord, cell_coords, min_row, min_col, max_row, max_col)
                 except:
                     continue
 
@@ -76,14 +78,10 @@ if uploaded_files:
                                     start_ref, end_ref = full_ref.split(":")
                                     parts1 = start_ref.split("!")
                                     parts2 = end_ref.split("!")
-                                    if len(parts1) == 2:
-                                        sheet1, start_cell = parts1
-                                    else:
-                                        sheet1, start_cell = sheet_name, parts1[0]
-                                    if len(parts2) == 2:
-                                        sheet2, end_cell = parts2
-                                    else:
-                                        sheet2, end_cell = sheet_name, parts2[0]
+                                    sheet1 = parts1[0] if len(parts1) == 1 else parts1[0]
+                                    sheet2 = parts2[0] if len(parts2) == 1 else parts2[0]
+                                    start_cell = parts1[-1]
+                                    end_cell = parts2[-1]
                                     if sheet1 != sheet2:
                                         return full_ref
                                     start_col, start_row = re.match(r"([A-Z]+)([0-9]+)", start_cell).groups()
@@ -92,19 +90,19 @@ if uploaded_files:
                                     er, ec = int(end_row), openpyxl.utils.column_index_from_string(end_col)
                                     for nr_name, (wb_name, nr_sheet, _, coords, min_r, min_c, max_r, max_c) in named_range_definitions.items():
                                         if nr_sheet == sheet1 and all((r, c) in coords for r in range(sr, er+1) for c in range(sc, ec+1)):
-                                            if sr == min_r and er == max_r:
+                                            if sr == min_r and er == max_r and sc == ec:
                                                 return f"{nr_name}[][ {sc - min_c + 1} ]"
-                                            elif sc == min_c and ec == max_c:
+                                            elif sc == min_c and ec == max_c and sr == er:
                                                 return f"{nr_name}[{sr - min_r + 1}][]"
+                                            elif sr == min_r and er == max_r and sc == min_c and ec == max_c:
+                                                return f"{nr_name}"
                                             else:
                                                 return f"{nr_name}[{sr - min_r + 1}:{er - min_r + 1}][{sc - min_c + 1}:{ec - min_c + 1}]"
                                     return full_ref
                                 else:
                                     parts = full_ref.split("!")
-                                    if len(parts) == 2:
-                                        sheet_ref, cell_ref = parts
-                                    else:
-                                        sheet_ref, cell_ref = sheet_name, parts[0]
+                                    sheet_ref = parts[0] if len(parts) == 1 else parts[0]
+                                    cell_ref = parts[-1]
                                     cell_ref = cell_ref.replace("$", "").upper()
                                     match = re.match(r"([A-Z]+)([0-9]+)", cell_ref)
                                     if not match:
