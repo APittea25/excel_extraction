@@ -9,12 +9,20 @@ st.write("Upload one or more Excel files to inspect named ranges, their location
 
 # Add print button for PDF generation
 st.markdown("""
-    <script>
-    function printPage() {
-        window.print();
-    }
-    </script>
-    <button onclick="printPage()">🖨️ Print Page</button>
+    <div style="text-align: right; margin-bottom: 1rem;">
+        <button onclick="window.print()" style="
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+        ">
+            🖨️ Print Page
+        </button>
+    </div>
 """, unsafe_allow_html=True)
 
 uploaded_files = st.file_uploader("Upload Excel files", type=['xlsx'], accept_multiple_files=True)
