@@ -19,7 +19,11 @@ st.markdown("""
     </script>
 """, unsafe_allow_html=True)
 
-st.button("🖨️ Print This Page", on_click=lambda: st.markdown("<script>window.print();</script>", unsafe_allow_html=True))
+st.markdown("""
+    <div style='text-align: right; margin-bottom: 1em;'>
+        <button onclick="window.print()">🖨️ Print This Page</button>
+    </div>
+""", unsafe_allow_html=True)
 
 # Allow manual mapping of external references like [1], [2], etc.
 st.subheader("Manual Mapping for External References")
