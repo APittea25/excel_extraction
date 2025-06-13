@@ -6,18 +6,12 @@ import re
 import os
 from collections import defaultdict
 import graphviz
-from fpdf import FPDF
-import tempfile
-from PIL import Image
 
 st.set_page_config(page_title="Named Range Formula Remapper", layout="wide")
 st.title("\U0001F4D8 Named Range Coordinates + Formula Remapping")
 
-# --- Force expanders open ---
+# Print button and JS to expand all expanders
 st.markdown("""
-    <style>
-        details { display: block !important; }
-    </style>
     <script>
     window.addEventListener('load', function() {
         document.querySelectorAll('details').forEach(el => el.open = true);
@@ -25,7 +19,6 @@ st.markdown("""
     </script>
 """, unsafe_allow_html=True)
 
-# --- Print and Export Button ---
 st.markdown("""
     <div style='text-align: right; margin-bottom: 1em;'>
         <button onclick="window.print()">🖨️ Print This Page</button>
@@ -43,9 +36,6 @@ for i in range(1, 10):
 
 uploaded_files = st.file_uploader("\U0001F4C2 Upload Excel files", type=["xlsx"], accept_multiple_files=True)
 
-pdf_content = []
-graph_dot = None
-
 if uploaded_files:
     all_named_cell_map = {}
     all_named_ref_info = {}
@@ -56,7 +46,6 @@ if uploaded_files:
         display_name = uploaded_file.name
         file_display_names[display_name] = uploaded_file
         st.header(f"\U0001F4C4 File: `{display_name}`")
-        pdf_content.append(f"File: {display_name}\n")
         wb = load_workbook(BytesIO(uploaded_file.read()), data_only=False)
 
         for name in wb.defined_names:
@@ -170,7 +159,10 @@ if uploaded_files:
             offset += len(remapped) - len(raw)
         return replaced_formula
 
-    for name, (file_name, sheet_name, coord_set, min_row, min_col) in all_named_ref_info.items():
+    for (name, (file_name, sheet_name, coord_set, min_row, min_col)) in all_named_ref_info.items():
+        entries = []
+        formulas_for_graph = []
+
         try:
             file_bytes = file_display_names[file_name]
             wb = load_workbook(BytesIO(file_bytes.getvalue()), data_only=False)
@@ -182,16 +174,24 @@ if uploaded_files:
             ref_range = f"{min_col_letter}{min_row_num}:{max_col_letter}{max_row_num}"
             cell_range = ws[ref_range] if ":" in ref_range else [[ws[ref_range]]]
 
-            entries = []
             for row in cell_range:
                 for cell in row:
                     row_offset = cell.row - min_row + 1
                     col_offset = cell.column - min_col + 1
                     label = f"{name}[{row_offset}][{col_offset}]"
+
                     try:
-                        formula = cell.value if isinstance(cell.value, str) and cell.value.startswith("=") else None
+                        formula = None
+                        if isinstance(cell.value, str) and cell.value.startswith("="):
+                            formula = cell.value.strip()
+                        elif hasattr(cell, 'value') and hasattr(cell.value, 'text'):
+                            formula = str(cell.value.text).strip()
+                        elif hasattr(cell, 'value'):
+                            formula = str(cell.value)
+
                         if formula:
                             remapped = remap_formula(formula, file_name, sheet_name)
+                            formulas_for_graph.append(remapped)
                         elif cell.value is not None:
                             formula = f"[value] {str(cell.value)}"
                             remapped = formula
@@ -203,55 +203,41 @@ if uploaded_files:
                         remapped = formula
 
                     entries.append(f"{label} = {formula}\n → {remapped}")
-                    pdf_content.append(f"{label} = {formula} → {remapped}\n")
-
-            with st.expander(f"📌 Named Range: `{name}` → `{sheet_name}!{ref_range}` in `{file_name}`"):
-                st.code("\n".join(entries), language="text")
-
         except Exception as e:
-            st.error(f"❌ Error processing {name} in {sheet_name}: {e}")
+            entries.append(f"❌ Error accessing `{name}` in `{sheet_name}`: {e}")
 
-    # --- Graphviz Dependency Graph ---
-    dependencies = defaultdict(list)
-    label_sources = list(all_named_ref_info.keys())
-    for label in label_sources:
-        formula_lines = [line for line in pdf_content if line.startswith(label)]
-        formula_text = " ".join(formula_lines)
-        for other in label_sources:
-            if other != label and other in formula_text:
-                dependencies[label].append(other)
+        named_ref_formulas[name] = formulas_for_graph
 
+        with st.expander(f"📌 Named Range: `{name}` → `{sheet_name}` in `{file_name}`"):
+            st.code("\n".join(entries), language="text")
+
+    # Dependency Graph
+    st.subheader("🔗 Dependency Graph")
     dot = graphviz.Digraph()
-    dot.attr(rankdir="LR")
-    for label in label_sources:
-        dot.node(label)
-    for tgt, srcs in dependencies.items():
-        for src in srcs:
-            dot.edge(src, tgt)
+    dot.attr(compound='true', rankdir='LR')
 
-    st.subheader("📊 Dependency Graph")
+    grouped = defaultdict(list)
+    for name, (file, *_rest) in all_named_ref_info.items():
+        grouped[file].append(name)
+
+    dependencies = defaultdict(set)
+    for target, formulas in named_ref_formulas.items():
+        joined = " ".join(formulas)
+        for source in named_ref_formulas:
+            if source != target and re.search(rf"\b{re.escape(source)}\b", joined):
+                dependencies[target].add(source)
+
+    for i, (file_name, nodes) in enumerate(grouped.items()):
+        with dot.subgraph(name=f"cluster_{i}") as c:
+            c.attr(label=file_name)
+            c.attr(style='filled', color='lightgrey')
+            for node in nodes:
+                c.node(node)
+
+    for target, sources in dependencies.items():
+        for source in sources:
+            dot.edge(source, target)
+
     st.graphviz_chart(dot)
-
-    # Save graph to temporary image
-    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
-        dot.render(tmpfile.name, format="png", cleanup=False)
-        graph_image_path = tmpfile.name + ".png"
-
-    # PDF Export
-    if st.button("📄 Export as PDF"):
-        pdf = FPDF()
-        pdf.set_auto_page_break(auto=True, margin=15)
-        pdf.add_page()
-        pdf.set_font("Arial", size=10)
-
-        for line in pdf_content:
-            pdf.multi_cell(0, 5, line)
-
-        if os.path.exists(graph_image_path):
-            pdf.add_page()
-            pdf.image(graph_image_path, x=10, y=10, w=180)
-
-        st.download_button("Download PDF", data=pdf.output(dest="S").encode("latin1"), file_name="remapped_formulas.pdf", mime="application/pdf")
-
 else:
     st.info("⬆️ Upload one or more `.xlsx` files to begin.")
