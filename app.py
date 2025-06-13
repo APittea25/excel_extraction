@@ -90,12 +90,12 @@ if uploaded_files:
                                     er, ec = int(end_row), openpyxl.utils.column_index_from_string(end_col)
                                     for nr_name, (wb_name, nr_sheet, _, coords, min_r, min_c, max_r, max_c) in named_range_definitions.items():
                                         if nr_sheet == sheet1 and all((r, c) in coords for r in range(sr, er+1) for c in range(sc, ec+1)):
-                                            if sr == min_r and er == max_r and sc == ec:
-                                                return f"{nr_name}[][ {sc - min_c + 1} ]"
-                                            elif sc == min_c and ec == max_c and sr == er:
-                                                return f"{nr_name}[{sr - min_r + 1}][]"
-                                            elif sr == min_r and er == max_r and sc == min_c and ec == max_c:
+                                            if sr == min_r and er == max_r and sc == min_c and ec == max_c:
                                                 return f"{nr_name}"
+                                            elif sc == ec and sc == min_c and ec == max_c:
+                                                return f"{nr_name}[][ {sr - min_r + 1}:{er - min_r + 1} ]"
+                                            elif sr == er and sr == min_r and er == max_r:
+                                                return f"{nr_name}[{sc - min_c + 1}:{ec - min_c + 1}][]"
                                             else:
                                                 return f"{nr_name}[{sr - min_r + 1}:{er - min_r + 1}][{sc - min_c + 1}:{ec - min_c + 1}]"
                                     return full_ref
