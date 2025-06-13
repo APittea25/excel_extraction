@@ -44,9 +44,7 @@ if uploaded_files:
 
                     # Handle single cell or range
                     try:
-                        cell_range = ws[coord]
-                        if not isinstance(cell_range, (tuple, list)):
-                            cell_range = [[cell_range]]
+                        cell_range = ws[coord] if ":" in coord else [[ws[coord]]]
                     except Exception as e:
                         result.append({
                             "Named Range": name,
