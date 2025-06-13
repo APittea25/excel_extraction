@@ -12,12 +12,13 @@ uploaded_files = st.file_uploader("\U0001F4C2 Upload Excel files", type=["xlsx"]
 if uploaded_files:
     all_named_cell_map = {}
     all_named_ref_info = {}
+    all_sheet_names = {}
 
     for uploaded_file in uploaded_files:
         st.header(f"\U0001F4C4 File: `{uploaded_file.name}`")
         wb = load_workbook(BytesIO(uploaded_file.read()), data_only=False)
+        all_sheet_names[uploaded_file.name] = wb.sheetnames
 
-        # Step 1: Map all named references to cell positions
         for name in wb.defined_names:
             dn = wb.defined_names[name]
             if dn.is_external or not dn.attr_text:
@@ -43,7 +44,6 @@ if uploaded_files:
                 except:
                     continue
 
-    # Step 2: Remapping logic
     def remap_formula(formula, current_file, current_sheet):
         if not formula:
             return ""
@@ -65,11 +65,10 @@ if uploaded_files:
             row = int(row_str)
             col = column_index_from_string(col_str)
 
-            # Search across all files
             for (fname, sname, r, c), (name, r_off, c_off) in all_named_cell_map.items():
                 if sname == sheet_name and r == row and c == col:
                     return f"[{fname}]{name}[{r_off}][{c_off}]"
-            return ref
+            return f"[{default_file}]{sheet_name}!{addr}"
 
         def remap_range(ref, default_file, default_sheet):
             if "!" in ref:
@@ -99,7 +98,7 @@ if uploaded_files:
                             label_set.add(f"[{fname}]{name}[{r_off}][{c_off}]")
                             break
                     else:
-                        label_set.add(f"{sheet_name}!{cell_address(row, col)}")
+                        label_set.add(f"[{default_file}]{sheet_name}!{cell_address(row, col)}")
             return ", ".join(sorted(label_set)) if label_set else ref
 
         pattern = r"(?<![A-Za-z0-9_])(?:[A-Za-z0-9_]+!)?\$?[A-Z]{1,3}\$?[0-9]{1,7}(?::\$?[A-Z]{1,3}\$?[0-9]{1,7})?"
@@ -114,7 +113,6 @@ if uploaded_files:
             offset += len(remapped) - len(raw)
         return replaced_formula
 
-    # Step 3: Display remapped formulas per named reference
     for (name, (file_name, sheet_name, coord_set, min_row, min_col)) in all_named_ref_info.items():
         entries = []
 
