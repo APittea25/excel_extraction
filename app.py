@@ -143,8 +143,10 @@ if uploaded_files:
                                 formula = None
                                 if isinstance(cell.value, str) and cell.value.startswith("="):
                                     formula = cell.value.strip()
-                                elif hasattr(cell, 'formula') and hasattr(cell.formula, 'text'):
-                                    formula = str(cell.formula.text).strip()
+                                elif hasattr(cell, 'value') and hasattr(cell.value, 'text'):
+                                    formula = str(cell.value.text).strip()
+                                elif hasattr(cell, 'value'):
+                                    formula = str(cell.value)
 
                                 if formula:
                                     remapped = remap_formula(formula, sheet_name)
