@@ -134,14 +134,19 @@ if uploaded_files:
                             col_offset = cell.column - min_col + 1
                             label = f"{name}[{row_offset}][{col_offset}]"
 
-                            if isinstance(cell.value, str) and cell.value.startswith("="):
-                                formula = cell.value.strip()
-                                remapped = remap_formula(formula, sheet_name)
-                            elif cell.value is not None:
-                                formula = f"[value] {cell.value}"
-                                remapped = formula
-                            else:
-                                formula = "(empty)"
+                            try:
+                                value = cell.value
+                                if isinstance(value, str) and value.startswith("="):
+                                    formula = value.strip()
+                                    remapped = remap_formula(formula, sheet_name)
+                                elif value is not None:
+                                    formula = f"[value] {str(value)}"
+                                    remapped = formula
+                                else:
+                                    formula = "(empty)"
+                                    remapped = formula
+                            except Exception as e:
+                                formula = f"[error reading cell: {e}]"
                                 remapped = formula
 
                             entries.append(f"{label} = {formula}\n → {remapped}")
