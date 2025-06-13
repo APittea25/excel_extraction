@@ -12,7 +12,7 @@ def extract_named_ranges(file, filename):
     wb = load_workbook(filename=BytesIO(file.read()), data_only=False)
     result = []
 
-    for named_range in wb.defined_names.definedName:
+    for named_range in wb.defined_names:
         name = named_range.name
         destinations = list(named_range.destinations)
 
