@@ -1,36 +1,42 @@
 import streamlit as st
-import pandas as pd
 from openpyxl import load_workbook
-from io import BytesIO
+import io
+import pandas as pd
 
-st.title("Named Ranges Extractor from Excel Files")
+st.title("📘 Excel Named References Viewer")
 
 uploaded_files = st.file_uploader(
-    "Upload one or more Excel files", 
+    "Upload one or more Excel files (.xlsx)", 
     type=["xlsx"], 
     accept_multiple_files=True
 )
 
-def extract_named_ranges(file):
-    wb = load_workbook(filename=BytesIO(file.read()), data_only=True)
-    named_ranges = []
-    for name in wb.defined_names.definedName:
-        name_info = {
-            "Name": name.name,
-            "Scope": name.localSheetId if name.localSheetId is not None else "Workbook",
-            "Refers To": name.attr_text
-        }
-        named_ranges.append(name_info)
-    return pd.DataFrame(named_ranges)
+def extract_named_references(wb):
+    named_refs = []
+
+    for name in wb.defined_names:
+        dn = wb.defined_names[name]
+        if dn.is_external or not dn.attr_text:
+            continue
+
+        for sheet_title, ref in dn.destinations:
+            named_refs.append({
+                "Name": name,
+                "Sheet": sheet_title,
+                "Reference": ref
+            })
+
+    return pd.DataFrame(named_refs)
 
 if uploaded_files:
-    for file in uploaded_files:
-        st.subheader(f"Named Ranges in: {file.name}")
+    for uploaded_file in uploaded_files:
+        st.subheader(f"📄 {uploaded_file.name}")
         try:
-            df = extract_named_ranges(file)
+            wb = load_workbook(io.BytesIO(uploaded_file.read()), data_only=False)
+            df = extract_named_references(wb)
             if not df.empty:
                 st.dataframe(df)
             else:
-                st.info("No named ranges found.")
+                st.info("No named references found.")
         except Exception as e:
-            st.error(f"Failed to process {file.name}: {e}")
+            st.error(f"❌ Error reading {uploaded_file.name}: {e}")
