@@ -58,6 +58,7 @@ if uploaded_files:
                     first_cell = True
                     is_spill = False
                     spill_formula = None
+                    spill_value_count = 0
 
                     for row in cell_range:
                         for cell in row:
@@ -72,12 +73,16 @@ if uploaded_files:
                                 if first_cell:
                                     spill_formula = raw_formula
                                     formulas.append(f"[spill] {spill_formula}")
+                            elif cell.value is not None:
+                                if first_cell:
+                                    formulas.append(f"[value] {cell.value}")
                                 else:
-                                    is_spill = True  # Other cells in range only contain values
-                            elif cell.value is not None and first_cell:
-                                formulas.append(f"[value] {cell.value}")
+                                    spill_value_count += 1
 
                             first_cell = False
+
+                    if spill_formula and spill_value_count > 0:
+                        formulas.append(f"... [spilled result across {spill_value_count} cells]")
 
                     if is_spill and len(formulas) == 1:
                         formulas.append(f"... [spilled result across {len(cell_range)*len(cell_range[0]) - 1} cells]")
