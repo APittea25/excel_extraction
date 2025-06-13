@@ -45,6 +45,11 @@ if uploaded_files:
 
         # Step 2: Remapping logic
         def remap_formula(formula, current_sheet):
+            if not formula:
+                return ""
+            formula = re.sub(r"'[^']+\\.xlsx'!", "", formula)
+            formula = re.sub(r"\\[[^\\]]+\\][^!]*!", "", formula)
+
             def cell_address(row, col):
                 return f"{get_column_letter(col)}{row}"
 
@@ -135,11 +140,9 @@ if uploaded_files:
                             label = f"{name}[{row_offset}][{col_offset}]"
 
                             try:
-                                if hasattr(cell, '_formula') and isinstance(cell._formula, str):
-                                    formula = cell._formula.strip()
-                                    remapped = remap_formula(formula, sheet_name)
-                                elif isinstance(cell.value, str) and cell.value.startswith("="):
-                                    formula = cell.value.strip()
+                                if cell.data_type == 'f' or hasattr(cell, 'formula'):
+                                    raw_formula = str(getattr(cell, 'value', ''))
+                                    formula = raw_formula.strip() if isinstance(raw_formula, str) else str(raw_formula)
                                     remapped = remap_formula(formula, sheet_name)
                                 elif cell.value is not None:
                                     formula = f"[value] {str(cell.value)}"
