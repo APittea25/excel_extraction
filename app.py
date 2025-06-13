@@ -5,13 +5,13 @@ from io import BytesIO
 import re
 
 st.set_page_config(page_title="Named Range Formula Remapper", layout="wide")
-st.title("📘 Named Range Coordinates + Formula Remapping")
+st.title("\U0001F4D8 Named Range Coordinates + Formula Remapping")
 
-uploaded_files = st.file_uploader("📂 Upload Excel files", type=["xlsx"], accept_multiple_files=True)
+uploaded_files = st.file_uploader("\U0001F4C2 Upload Excel files", type=["xlsx"], accept_multiple_files=True)
 
 if uploaded_files:
     for uploaded_file in uploaded_files:
-        st.header(f"📄 File: `{uploaded_file.name}`")
+        st.header(f"\U0001F4C4 File: `{uploaded_file.name}`")
         wb = load_workbook(BytesIO(uploaded_file.read()), data_only=False)
 
         named_cell_map = {}
@@ -39,7 +39,7 @@ if uploaded_files:
                             col_offset = c - min_col + 1
                             named_cell_map[(sheet_name, r, c)] = (name, row_offset, col_offset)
                             coord_set.add((r, c))
-                    named_ref_info[name] = (sheet_name, coord_set, min_row, min_col)
+                    named_ref_info[name] = (uploaded_file.name, sheet_name, coord_set, min_row, min_col)
                 except:
                     continue
 
