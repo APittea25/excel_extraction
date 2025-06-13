@@ -6,7 +6,7 @@ import openpyxl
 
 st.set_page_config(page_title="Named Range Cell Coordinates", layout="wide")
 st.title("\U0001F4C2 Named Range Coordinate Extractor")
-st.write("Upload one or more Excel files. For each named range, the app will display all cell coordinates in the form of [WorkbookName][SheetName]Cell[row][col] and the associated formula or value.")
+st.write("Upload one or more Excel files. For each named range, the app will display all cell coordinates in the form of [WorkbookName][SheetName]Cell[row][col], the associated formula or value, and a mapped reference using named ranges if applicable.")
 
 uploaded_files = st.file_uploader("Upload Excel files", type=["xlsx"], accept_multiple_files=True)
 
@@ -15,6 +15,28 @@ if uploaded_files:
         st.header(f"\U0001F4C4 File: {uploaded_file.name}")
         workbook_bytes = BytesIO(uploaded_file.read())
         wb = load_workbook(workbook_bytes, data_only=False)
+
+        named_ranges_map = {}
+
+        # Build named ranges map
+        for name in wb.defined_names:
+            dn_obj = wb.defined_names[name]
+            if dn_obj.is_external or not dn_obj.attr_text:
+                continue
+            for sheet_name, ref in dn_obj.destinations:
+                try:
+                    ws = wb[sheet_name]
+                    coord = ref.replace("$", "").split("!")[-1]
+                    cell_range = ws[coord] if ":" in coord else [[ws[coord]]]
+                    min_row = min(cell.row for row in cell_range for cell in row)
+                    min_col = min(cell.column for row in cell_range for cell in row)
+                    coords = {
+                        (cell.row, cell.column): (name, cell.row - min_row + 1, cell.column - min_col + 1)
+                        for row in cell_range for cell in row
+                    }
+                    named_ranges_map.update(coords)
+                except:
+                    continue
 
         for name in wb.defined_names:
             dn = wb.defined_names[name]
@@ -46,12 +68,29 @@ if uploaded_files:
                             else:
                                 cell_content = "(empty)"
 
-                            entries.append(f"{cell_label} = {cell_content}")
+                            # Reference formula mapping
+                            def map_reference(m):
+                                cell_ref = m.group(0).replace("$", "").upper()
+                                match = re.match(r"([A-Z]+)([0-9]+)", cell_ref)
+                                if not match:
+                                    return m.group(0)
+                                col_letter, row_number = match.groups()
+                                row_num = int(row_number)
+                                col_num = openpyxl.utils.column_index_from_string(col_letter)
+                                key = (row_num, col_num)
+                                if key in named_ranges_map:
+                                    nr_name, r_offset, c_offset = named_ranges_map[key]
+                                    return f"{nr_name}[{r_offset}][{c_offset}]"
+                                return m.group(0)
+
+                            reference_formula = re.sub(r"\b[A-Z]{1,3}[0-9]{1,7}\b", map_reference, cell_content) if isinstance(cell_content, str) else cell_content
+
+                            entries.append(f"{cell_label} = {cell_content}\n → {reference_formula}")
                 except Exception as e:
                     entries.append(f"Error accessing {ref}: {e}")
 
             with st.expander(f"\U0001F4CC Named Range: {name}"):
-                st.write("**Cell Coordinates and Values/Formulas:**")
+                st.write("**Cell Coordinates, Raw Formula/Value, and Reference Formula:**")
                 st.code("\n".join(entries), language="text")
 else:
     st.info("⬆️ Upload one or more `.xlsx` files to get started.")
