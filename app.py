@@ -11,7 +11,7 @@ uploaded_files = st.file_uploader(
     accept_multiple_files=True
 )
 
-def extract_named_references(wb):
+def extract_named_references(wb, workbook_name):
     named_refs = []
 
     for name in wb.defined_names:
@@ -21,22 +21,30 @@ def extract_named_references(wb):
 
         for sheet_title, ref in dn.destinations:
             named_refs.append({
-                "Name": name,
+                "Workbook": workbook_name,
                 "Sheet": sheet_title,
-                "Reference": ref
+                "Reference": ref,
+                "Name": name
             })
 
-    return pd.DataFrame(named_refs)
+    return named_refs
+
+all_refs = []
 
 if uploaded_files:
     for uploaded_file in uploaded_files:
-        st.subheader(f"📄 {uploaded_file.name}")
         try:
             wb = load_workbook(io.BytesIO(uploaded_file.read()), data_only=False)
-            df = extract_named_references(wb)
-            if not df.empty:
-                st.dataframe(df)
-            else:
-                st.info("No named references found.")
+            refs = extract_named_references(wb, uploaded_file.name)
+            all_refs.extend(refs)
         except Exception as e:
             st.error(f"❌ Error reading {uploaded_file.name}: {e}")
+
+    if all_refs:
+        df = pd.DataFrame(all_refs)
+        st.subheader("📋 Named References Summary")
+        st.dataframe(df)
+    else:
+        st.info("No named references found in uploaded files.")
+else:
+    st.info("⬆️ Upload one or more `.xlsx` files to begin.")
