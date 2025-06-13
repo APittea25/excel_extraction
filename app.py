@@ -28,6 +28,22 @@ if uploaded_files:
         wb = load_workbook(filename=BytesIO(file.read()), data_only=False)
         result = []
 
+        # Map named ranges to coordinate sets
+        named_ranges_map = {}
+        for defined_name in wb.defined_names:
+            dn_obj = wb.defined_names[defined_name]
+            if dn_obj.is_external or not dn_obj.attr_text:
+                continue
+            for sheet_name, ref in dn_obj.destinations:
+                try:
+                    ws = wb[sheet_name]
+                    coord = ref.replace("$", "").split("!")[-1]
+                    cell_range = ws[coord] if ":" in coord else [[ws[coord]]]
+                    coords = {(cell.coordinate): (ri+1, ci+1) for ri, row in enumerate(cell_range) for ci, cell in enumerate(row)}
+                    named_ranges_map[defined_name] = {"sheet": sheet_name, "cells": coords}
+                except:
+                    continue
+
         for name in wb.defined_names:
             dn = wb.defined_names[name]
 
@@ -55,17 +71,29 @@ if uploaded_files:
                         })
                         continue
 
-                    for row in cell_range:
+                                        for row in cell_range:
                         for cell in row:
                             raw_formula = None
 
                             if isinstance(cell.value, str) and cell.value.startswith("="):
                                 raw_formula = cell.value.strip()
+
+                                # Attempt replacement of any direct cell reference
+                                def replace_match(m):
+                                    cell_ref = m.group(0)
+                                    for nr_name, nr_data in named_ranges_map.items():
+                                        if nr_data["sheet"] == sheet_name and cell_ref in nr_data["cells"]:
+                                            r, c = nr_data["cells"][cell_ref]
+                                            return f"{nr_name}[{r}][{c}]"
+                                    return cell_ref
+
+                                raw_formula = re.sub(r"[A-Z]+[0-9]+", replace_match, raw_formula)
+                                formulas.append(raw_formula)
+
                             elif hasattr(cell.value, "text"):
                                 raw_formula = str(cell.value.text).strip()
-
-                            if raw_formula:
                                 formulas.append(raw_formula)
+
                             elif cell.value is not None:
                                 formulas.append(f"[value] {cell.value}")
 
