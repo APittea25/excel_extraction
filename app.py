@@ -4,7 +4,7 @@ from io import BytesIO
 
 st.set_page_config(page_title="Named Range Cell Viewer", layout="wide")
 st.title("📘 Named Range Cell Coordinates & Formulas")
-st.write("Upload one or more Excel files. This app will list all cells within each named range along with their coordinate and formula or value.")
+st.write("Upload Excel files. For each named range, the app will show all cells in the form: `NamedReference[row][col] = formula/value`, where `[row][col]` are offsets within the named range.")
 
 uploaded_files = st.file_uploader("📂 Upload Excel files", type=["xlsx"], accept_multiple_files=True)
 
@@ -33,7 +33,7 @@ if uploaded_files:
                         for cell in row:
                             row_offset = cell.row - min_row + 1
                             col_offset = cell.column - min_col + 1
-                            cell_label = f"[{uploaded_file.name}][{sheet_name}]Cell[{row_offset}][{col_offset}]"
+                            label = f"{name}[{row_offset}][{col_offset}]"
 
                             if isinstance(cell.value, str) and cell.value.startswith("="):
                                 content = cell.value.strip()
@@ -44,13 +44,12 @@ if uploaded_files:
                             else:
                                 content = "(empty)"
 
-                            entries.append(f"{cell_label} = {content}")
+                            entries.append(f"{label} = {content}")
 
                 except Exception as e:
                     entries.append(f"❌ Error accessing `{ref}`: {e}")
 
             with st.expander(f"📌 Named Range: `{name}` in `{sheet_name}` → {ref}"):
-                st.write("**Coordinates and Formula/Value**")
                 st.code("\n".join(entries), language="text")
 else:
-    st.info("⬆️ Upload `.xlsx` files to begin.")
+    st.info("⬆️ Upload one or more `.xlsx` files to begin.")
