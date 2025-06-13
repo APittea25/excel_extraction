@@ -164,8 +164,10 @@ if uploaded_files:
                 except Exception as e:
                     entries.append(f"❌ Error accessing `{ref}`: {e}")
 
+            # Show actual sheet name and reference in the expander title
+            ref_label = ref if 'ref' in locals() else 'UnknownRef'
             sheet_label = sheet_name if 'sheet_name' in locals() else 'UnknownSheet'
-            with st.expander(f"📌 Named Range: `{name}` → `{sheet_label}!{ref}`"):
+            with st.expander(f"📌 Named Range: `{name}` → `{sheet_label}!{ref_label}`"):
                 st.code("\n".join(entries), language="text")
 else:
     st.info("⬆️ Upload one or more `.xlsx` files to begin.")
