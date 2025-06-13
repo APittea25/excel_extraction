@@ -96,6 +96,8 @@ if uploaded_files:
                                         return m.group(0)
 
                                     for nr_name, nr_data in named_ranges_map.items():
+                                        if nr_data["sheet"] != sheet_name:
+                                            continue  # Skip named ranges from other sheets
                                         # First try exact match
                                         for coord, (r_offset, c_offset) in nr_data["cells"].items():
                                             col_str, row = openpyxl.utils.cell.coordinate_from_string(coord)
