@@ -76,10 +76,10 @@ if uploaded_files:
         results = extract_named_ranges(uploaded_file, uploaded_file.name)
 
         for item in results:
-            st.markdown(f"### 📌 Named Range: `{item['Named Range']}`")
-            st.write(f"**Sheet:** {item['Sheet']}")
-            st.write(f"**Range:** {item['Range']}")
-            st.write("**Formulas / Values:**")
-            st.code("\n".join(item["Formulas"]), language="excel")
+            with st.expander(f"📌 Named Range: {item['Named Range']}"):
+                st.write(f"**Sheet:** {item['Sheet']}")
+                st.write(f"**Range:** {item['Range']}")
+                st.write("**Formulas / Values:**")
+                st.code("\n".join(item["Formulas"]), language="excel")
 else:
     st.info("Upload one or more .xlsx files to begin analysis.")
