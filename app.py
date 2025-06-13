@@ -17,7 +17,7 @@ if uploaded_files:
         wb = load_workbook(workbook_bytes, data_only=False)
 
         named_ranges_map = {}  # Structure: {(sheet_name, row, col): (name, r_offset, c_offset)}
-        named_range_definitions = {}  # Structure: {name: (workbook, sheet, ref)}
+        named_range_definitions = {}  # Structure: {name: (workbook, sheet, ref, cell_set)}
 
         # Build named ranges map
         for name in wb.defined_names:
@@ -31,11 +31,13 @@ if uploaded_files:
                     cell_range = ws[coord] if ":" in coord else [[ws[coord]]]
                     min_row = min(cell.row for row in cell_range for cell in row)
                     min_col = min(cell.column for row in cell_range for cell in row)
+                    cell_coords = set()
                     for row in cell_range:
                         for cell in row:
                             key = (sheet_name, cell.row, cell.column)
                             named_ranges_map[key] = (name, cell.row - min_row + 1, cell.column - min_col + 1)
-                    named_range_definitions[name] = (uploaded_file.name, sheet_name, coord)
+                            cell_coords.add((cell.row, cell.column))
+                    named_range_definitions[name] = (uploaded_file.name, sheet_name, coord, cell_coords)
                 except:
                     continue
 
@@ -89,9 +91,12 @@ if uploaded_files:
                                 col_num = openpyxl.utils.column_index_from_string(col_letter)
 
                                 key = (sheet_ref, row_num, col_num)
-                                if key in named_ranges_map:
-                                    nr_name, r_offset, c_offset = named_ranges_map[key]
-                                    return f"{nr_name}[{r_offset}][{c_offset}]"
+                                for nr_name, (wb_name, nr_sheet, _, coord_set) in named_range_definitions.items():
+                                    if sheet_ref == nr_sheet and (row_num, col_num) in coord_set:
+                                        # If it's the entire range
+                                        if coord_set == {(row_num, col_num)}:
+                                            return f"{nr_name}"
+                                        return f"{nr_name}[{row_num}][{col_num}]"
 
                                 return f"[{uploaded_file.name}][{sheet_ref}]Cell[{row_num}][{col_num}]"
 
@@ -101,7 +106,7 @@ if uploaded_files:
                 except Exception as e:
                     entries.append(f"Error accessing {ref}: {e}")
 
-            workbook_name, sheet_name_for_range, ref_string = named_range_definitions.get(name, (uploaded_file.name, sheet_name, ref))
+            workbook_name, sheet_name_for_range, ref_string, _ = named_range_definitions.get(name, (uploaded_file.name, sheet_name, ref, set()))
             with st.expander(f"\U0001F4CC Named Range: {name} [{workbook_name}][{sheet_name_for_range}][{ref_string}]"):
                 st.write("**Cell Coordinates, Raw Formula/Value, and Reference Formula:**")
                 st.code("\n".join(entries), language="text")
