@@ -49,15 +49,15 @@ if uploaded_files:
                     continue
 
     def extract_workbook_name(path_str):
-        match = re.search(r"\\([^\\\[]+\\.xlsx)\]", path_str)
+        match = re.search(r"\\([^\\\[]+\.xlsx)\]", path_str)
         if match:
             return match.group(1)
-        match = re.search(r"\[([^\]]+\\.xlsx)\]", path_str)
+        match = re.search(r"\[([^\]]+\.xlsx)\]", path_str)
         if match:
             return match.group(1)
-        match = re.search(r"\[\d+\]", path_str)
+        match = re.search(r"\[(\d+)\]", path_str)
         if match:
-            return "UnknownWorkbook"
+            return f"ExternalWorkbook{match.group(1)}"
         return "UnknownWorkbook"
 
     def remap_formula(formula, current_file, current_sheet):
@@ -73,8 +73,8 @@ if uploaded_files:
                 sheet_part, addr = ref.split("!")
                 if sheet_part.startswith("["):
                     extracted_name = extract_workbook_name(sheet_part)
-                    if extracted_name == "UnknownWorkbook":
-                        return ref
+                    if extracted_name.startswith("ExternalWorkbook"):
+                        return f"[{extracted_name}]!{addr}"
                     external_file = extracted_name
                     sheet_name = sheet_part.split("]")[-1]
                 else:
@@ -103,8 +103,8 @@ if uploaded_files:
                 sheet_part, addr = ref.split("!")
                 if sheet_part.startswith("["):
                     extracted_name = extract_workbook_name(sheet_part)
-                    if extracted_name == "UnknownWorkbook":
-                        return ref
+                    if extracted_name.startswith("ExternalWorkbook"):
+                        return f"[{extracted_name}]!{addr}"
                     external_file = extracted_name
                     sheet_name = sheet_part.split("]")[-1]
                 else:
@@ -112,10 +112,6 @@ if uploaded_files:
             else:
                 sheet_name = default_sheet
                 addr = ref
-
-            if ref.startswith("["):
-                if extract_workbook_name(ref.split("!")[0]) == "UnknownWorkbook":
-                    return ref
 
             addr = addr.replace("$", "").upper()
             if ":" not in addr:
