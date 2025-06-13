@@ -11,7 +11,7 @@ uploaded_files = st.file_uploader("\U0001F4C2 Upload Excel files", type=["xlsx"]
 
 if uploaded_files:
     for uploaded_file in uploaded_files:
-        st.header(f"\U0001F4C4 File: {uploaded_file.name}")
+        st.header(f"\U0001F4C4 File: `{uploaded_file.name}`")
         wb = load_workbook(BytesIO(uploaded_file.read()), data_only=False)
 
         named_cell_map = {}
@@ -162,12 +162,12 @@ if uploaded_files:
 
                             entries.append(f"{label} = {formula}\n → {remapped}")
                 except Exception as e:
-                    entries.append(f"❌ Error accessing {ref}: {e}")
+                    entries.append(f"❌ Error accessing `{ref}`: {e}")
 
             # Show actual sheet name and reference in the expander title
             ref_label = ref if 'ref' in locals() else 'UnknownRef'
             sheet_label = sheet_name if 'sheet_name' in locals() else 'UnknownSheet'
-            with st.expander(f"📌 Named Range: {name} → {sheet_label}!{ref_label}"):
+            with st.expander(f"📌 Named Range: `{name}` → `{sheet_label}!{ref_label}`"):
                 st.code("\n".join(entries), language="text")
 else:
-    st.info("⬆️ Upload one or more .xlsx files to begin.")
+    st.info("⬆️ Upload one or more `.xlsx` files to begin.")
