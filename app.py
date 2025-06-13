@@ -160,6 +160,18 @@ if uploaded_files:
             start, end = match.start() + offset, match.end() + offset
             replaced_formula = replaced_formula[:start] + remapped + replaced_formula[end:]
             offset += len(remapped) - len(raw)
+
+        # Additional remapping for external named ranges like [2]!kapp2v_diff_sd
+        named_ref_pattern = r"\[(\d+)\]!([A-Za-z0-9_]+)"
+        matches = list(re.finditer(named_ref_pattern, replaced_formula))
+        for match in matches:
+            ref_num, named_range = match.groups()
+            key = f"[{ref_num}]"
+            if key in external_refs:
+                mapped_file = external_refs[key]
+                remapped = f"[{mapped_file}]{named_range}"
+                replaced_formula = replaced_formula.replace(match.group(0), remapped)
+
         return replaced_formula
 
     for (name, (file_name, sheet_name, coord_set, min_row, min_col)) in all_named_ref_info.items():
