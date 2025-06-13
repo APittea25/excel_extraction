@@ -13,11 +13,14 @@ if uploaded_files:
     all_named_cell_map = {}
     all_named_ref_info = {}
     all_sheet_names = {}
+    file_display_names = {}
 
     for uploaded_file in uploaded_files:
-        st.header(f"\U0001F4C4 File: `{uploaded_file.name}`")
+        display_name = uploaded_file.name
+        file_display_names[display_name] = uploaded_file
+        st.header(f"\U0001F4C4 File: `{display_name}`")
         wb = load_workbook(BytesIO(uploaded_file.read()), data_only=False)
-        all_sheet_names[uploaded_file.name] = wb.sheetnames
+        all_sheet_names[display_name] = wb.sheetnames
 
         for name in wb.defined_names:
             dn = wb.defined_names[name]
@@ -38,9 +41,9 @@ if uploaded_files:
                             r, c = cell.row, cell.column
                             row_offset = r - min_row + 1
                             col_offset = c - min_col + 1
-                            all_named_cell_map[(uploaded_file.name, sheet_name, r, c)] = (name, row_offset, col_offset)
+                            all_named_cell_map[(display_name, sheet_name, r, c)] = (name, row_offset, col_offset)
                             coord_set.add((r, c))
-                    all_named_ref_info[name] = (uploaded_file.name, sheet_name, coord_set, min_row, min_col)
+                    all_named_ref_info[name] = (display_name, sheet_name, coord_set, min_row, min_col)
                 except:
                     continue
 
@@ -117,7 +120,8 @@ if uploaded_files:
         entries = []
 
         try:
-            wb = load_workbook(file_name, data_only=False)
+            file_bytes = file_display_names[file_name]
+            wb = load_workbook(BytesIO(file_bytes.getvalue()), data_only=False)
             ws = wb[sheet_name]
             ref_range = f"{get_column_letter(min([c for (_, c) in coord_set]))}{min([r for (r, _) in coord_set])}:{get_column_letter(max([c for (_, c) in coord_set]))}{max([r for (r, _) in coord_set])}"
             cell_range = ws[ref_range] if ":" in ref_range else [[ws[ref_range]]]
