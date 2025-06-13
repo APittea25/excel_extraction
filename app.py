@@ -58,7 +58,7 @@ if uploaded_files:
                     continue
 
     def extract_workbook_name(path_str):
-        match = re.search(r"\\([^\\\[]+\\.xlsx)\]", path_str)
+        match = re.search(r"\\([^\\\\\[]+\\.xlsx)\]", path_str)
         if match:
             return match.group(1)
         match = re.search(r"\[([^\]]+\\.xlsx)\]", path_str)
@@ -164,13 +164,18 @@ if uploaded_files:
         # Additional remapping for external named ranges like [2]!kapp2v_diff_sd
         named_ref_pattern = r"\[(\d+)\]!([A-Za-z0-9_]+)"
         matches = list(re.finditer(named_ref_pattern, replaced_formula))
+        offset = 0
         for match in matches:
-            ref_num, named_range = match.groups()
+            full_match = match.group(0)
+            ref_num = match.group(1)
+            named_range = match.group(2)
             key = f"[{ref_num}]"
             if key in external_refs:
                 mapped_file = external_refs[key]
-                remapped = f"[{mapped_file}]{named_range}"
-                replaced_formula = replaced_formula.replace(match.group(0), remapped)
+                new_ref = f"[{mapped_file}]{named_range}"
+                start, end = match.start() + offset, match.end() + offset
+                replaced_formula = replaced_formula[:start] + new_ref + replaced_formula[end:]
+                offset += len(new_ref) - len(full_match)
 
         return replaced_formula
 
