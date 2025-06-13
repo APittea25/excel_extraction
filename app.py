@@ -59,23 +59,17 @@ if uploaded_files:
 
                     for row in cell_range:
                         for cell in row:
-                            if cell.data_type == 'f':
-                                try:
-                                    if hasattr(cell, 'formula'):
-                                        if hasattr(cell.formula, 'text'):
-                                            formulas.append(cell.formula.text.strip())
-                                        elif isinstance(cell.formula, str):
-                                            formulas.append(cell.formula.strip())
-                                    elif isinstance(cell.value, str):
-                                        formulas.append(cell.value.strip())
-                                    else:
-                                        formulas.append(str(cell.value))
-                                except Exception as e:
-                                    formulas.append(f"[formula error] {e}")
-                            elif isinstance(cell.value, str) and cell.value.startswith("="):
-                                formulas.append(cell.value.strip())
-                            elif cell.value is not None:
-                                formulas.append(f"[value] {cell.value}")
+                        raw_formula = None
+
+                        if isinstance(cell.value, str) and cell.value.startswith("="):
+                            raw_formula = cell.value.strip()
+                        elif hasattr(cell.value, "text"):
+                            raw_formula = str(cell.value.text).strip()
+
+                        if raw_formula:
+                            formulas.append(raw_formula)
+                        elif cell.value is not None:
+                            formulas.append(f"[value] {cell.value}")
 
                     result.append({
                         "Named Range": name,
