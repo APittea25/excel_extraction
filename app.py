@@ -59,10 +59,18 @@ if uploaded_files:
 
                     for row in cell_range:
                         for cell in row:
-                            if isinstance(cell.value, str) and cell.value.startswith("="):
+                            if cell.data_type == 'f':
+                                try:
+                                    if hasattr(cell, 'formula') and isinstance(cell.formula, str):
+                                        formulas.append(cell.formula.strip())
+                                    elif isinstance(cell.value, str):
+                                        formulas.append(cell.value.strip())
+                                    else:
+                                        formulas.append(str(cell.value))
+                                except Exception as e:
+                                    formulas.append(f"[formula error] {e}")
+                            elif isinstance(cell.value, str) and cell.value.startswith("="):
                                 formulas.append(cell.value.strip())
-                            elif cell.data_type == 'f':
-                                formulas.append(str(cell.value))
                             elif cell.value is not None:
                                 formulas.append(f"[value] {cell.value}")
 
