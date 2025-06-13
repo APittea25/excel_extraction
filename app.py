@@ -8,6 +8,15 @@ import os
 st.set_page_config(page_title="Named Range Formula Remapper", layout="wide")
 st.title("\U0001F4D8 Named Range Coordinates + Formula Remapping")
 
+# Allow manual mapping of external references like [1], [2], etc.
+st.subheader("Manual Mapping for External References")
+external_refs = {}
+for i in range(1, 10):
+    ref_key = f"[{i}]"
+    workbook_name = st.text_input(f"Map external reference {ref_key} to workbook name (e.g., Mortality_Model_Inputs.xlsx)", key=ref_key)
+    if workbook_name:
+        external_refs[ref_key] = workbook_name
+
 uploaded_files = st.file_uploader("\U0001F4C2 Upload Excel files", type=["xlsx"], accept_multiple_files=True)
 
 if uploaded_files:
@@ -55,6 +64,10 @@ if uploaded_files:
         match = re.search(r"\[([^\]]+\\.xlsx)\]", path_str)
         if match:
             return match.group(1)
+        match = re.search(r"\[(\d+)\]", path_str)
+        if match:
+            ref_num = match.group(0)  # e.g. "[1]"
+            return external_refs.get(ref_num, ref_num)
         return "UnknownWorkbook"
 
     def remap_formula(formula, current_file, current_sheet):
@@ -194,7 +207,7 @@ if uploaded_files:
         except Exception as e:
             entries.append(f"❌ Error accessing `{name}` in `{sheet_name}`: {e}")
 
-        with st.expander(f"📌 Named Range: `{name}` → `{sheet_name}!{ref_range}` in `{file_name}`"):
+        with st.expander(f"\U0001F4CC Named Range: `{name}` → `{sheet_name}!{ref_range}` in `{file_name}`"):
             st.code("\n".join(entries), language="text")
 else:
     st.info("⬆️ Upload one or more `.xlsx` files to begin.")
