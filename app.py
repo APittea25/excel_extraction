@@ -71,20 +71,31 @@ if uploaded_files:
 
                             # Reference formula mapping
                             def map_reference(m):
-                                cell_ref = m.group(0).replace("$", "").upper()
+                                full_ref = m.group(0)
+                                parts = full_ref.split("!")
+
+                                if len(parts) == 2:
+                                    sheet_ref, cell_ref = parts[0], parts[1]
+                                else:
+                                    sheet_ref, cell_ref = sheet_name, parts[0]  # default to current sheet
+
+                                cell_ref = cell_ref.replace("$", "").upper()
                                 match = re.match(r"([A-Z]+)([0-9]+)", cell_ref)
                                 if not match:
-                                    return m.group(0)
+                                    return full_ref
+
                                 col_letter, row_number = match.groups()
                                 row_num = int(row_number)
                                 col_num = openpyxl.utils.column_index_from_string(col_letter)
-                                key = (sheet_name, row_num, col_num)
+
+                                key = (sheet_ref, row_num, col_num)
                                 if key in named_ranges_map:
                                     nr_name, r_offset, c_offset = named_ranges_map[key]
                                     return f"{nr_name}[{r_offset}][{c_offset}]"
-                                return m.group(0)
 
-                            reference_formula = re.sub(r"\b[A-Z]{1,3}[0-9]{1,7}\b", map_reference, cell_content) if isinstance(cell_content, str) else cell_content
+                                return f"[{uploaded_file.name}][{sheet_ref}]Cell[{row_num}][{col_num}]"
+
+                            reference_formula = re.sub(r"(?:[A-Za-z0-9_]+!)?[A-Z]{1,3}[0-9]{1,7}", map_reference, cell_content) if isinstance(cell_content, str) else cell_content
 
                             entries.append(f"{cell_label} = {cell_content}\n → {reference_formula}")
                 except Exception as e:
