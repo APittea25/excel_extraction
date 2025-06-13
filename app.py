@@ -29,7 +29,7 @@ if uploaded_files:
         wb = load_workbook(filename=BytesIO(file.read()), data_only=False)
         result = []
 
-        # Map named ranges to coordinate sets
+        # Build a mapping of named ranges to their cells and relative positions
         named_ranges_map = {}
         for defined_name in wb.defined_names:
             dn_obj = wb.defined_names[defined_name]
@@ -42,17 +42,19 @@ if uploaded_files:
                     cell_range = ws[coord] if ":" in coord else [[ws[coord]]]
                     min_row = min(cell.row for row in cell_range for cell in row)
                     min_col = min(cell.column for row in cell_range for cell in row)
-                    coords = {(cell.coordinate): (cell.row - min_row + 1, cell.column - min_col + 1) for row in cell_range for cell in row}
+                    # Store coordinate to relative row/col in the named range
+                    coords = {
+                        (cell.coordinate): (cell.row - min_row + 1, cell.column - min_col + 1)
+                        for row in cell_range for cell in row
+                    }
                     named_ranges_map[defined_name] = {"sheet": sheet_name, "cells": coords}
                 except:
                     continue
 
         for name in wb.defined_names:
             dn = wb.defined_names[name]
-
             if dn.is_external or not dn.attr_text:
                 continue
-
             destinations = list(dn.destinations)
 
             for sheet_name, ref in destinations:
@@ -61,7 +63,7 @@ if uploaded_files:
                     coord = ref.replace("$", "").split("!")[-1]
                     formulas = []
 
-                    # Handle single cell or range
+                    # Safely get cell range
                     try:
                         cell_range = ws[coord] if ":" in coord else [[ws[coord]]]
                     except Exception as e:
@@ -78,10 +80,11 @@ if uploaded_files:
                         for cell in row:
                             raw_formula = None
 
+                            # Handle string-based formulas
                             if isinstance(cell.value, str) and cell.value.startswith("="):
                                 raw_formula = cell.value.strip()
 
-                                # Attempt replacement of any direct cell reference
+                                # This function replaces literal cell refs with named range indexes
                                 def replace_match(m):
                                     cell_ref = m.group(0).replace("$", "").upper()
                                     try:
@@ -95,14 +98,13 @@ if uploaded_files:
                                     for nr_name, nr_data in named_ranges_map.items():
                                         if nr_data["sheet"] != sheet_name:
                                             continue
-                                        # Try exact match
+                                        # First try exact match
                                         for coord, (r_offset, c_offset) in nr_data["cells"].items():
                                             col_str, row = openpyxl.utils.cell.coordinate_from_string(coord)
                                             col = openpyxl.utils.column_index_from_string(col_str)
                                             if row == ref_row and col == ref_col:
                                                 return f"{nr_name}[{r_offset}][{c_offset}]"
-
-                                        # Fallback: check if cell is in bounding box of range
+                                        # Fallback bounding box check
                                         try:
                                             coords = list(nr_data["cells"].keys())
                                             min_r = min(openpyxl.utils.cell.coordinate_to_tuple(c)[0] for c in coords)
@@ -118,40 +120,17 @@ if uploaded_files:
 
                                     return m.group(0)
 
-                                    for nr_name, nr_data in named_ranges_map.items():
-                                        if nr_data["sheet"] != sheet_name:
-                                            min_r = min(cell[0] for cell in [openpyxl.utils.cell.coordinate_to_tuple(c) for c in nr_data["cells"].keys()])
-                                            max_r = max(cell[0] for cell in [openpyxl.utils.cell.coordinate_to_tuple(c) for c in nr_data["cells"].keys()])
-                                            min_c = min(cell[1] for cell in [openpyxl.utils.cell.coordinate_to_tuple(c) for c in nr_data["cells"].keys()])
-                                            max_c = max(cell[1] for cell in [openpyxl.utils.cell.coordinate_to_tuple(c) for c in nr_data["cells"].keys()])
-                                            if min_r <= ref_row <= max_r and min_c <= ref_col <= max_c:
-                                                rel_r = ref_row - min_r + 1
-                                                rel_c = ref_col - min_c + 1
-                                                return f"{nr_name}[{rel_r}][{rel_c}]"
-                                        if nr_data["sheet"] != sheet_name:
-                                            continue
-                                        for coord, (r_offset, c_offset) in nr_data["cells"].items():
-                                            col_str, row = openpyxl.utils.cell.coordinate_from_string(coord)
-                                            col = openpyxl.utils.column_index_from_string(col_str)
-                                            if ref_row == row and ref_col == col:
-                                                return f"{nr_name}[{r_offset}][{c_offset}]"
-                                    return m.group(0)
-
+                                # Substitute all simple cell references with mapping logic
                                 raw_formula = re.sub(r"\b[A-Z]{1,3}[0-9]{1,7}\b", replace_match, raw_formula)
                                 formulas.append(raw_formula)
 
+                            # Handle other formula types or static values
                             elif hasattr(cell.value, "text"):
                                 raw_formula = str(cell.value.text).strip()
                                 formulas.append(raw_formula)
 
                             elif cell.value is not None:
                                 formulas.append(f"[value] {cell.value}")
-
-                            
-
-                    
-
-                    
 
                     result.append({
                         "Named Range": name,
