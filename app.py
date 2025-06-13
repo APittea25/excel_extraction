@@ -16,7 +16,7 @@ if uploaded_files:
         workbook_bytes = BytesIO(uploaded_file.read())
         wb = load_workbook(workbook_bytes, data_only=False)
 
-        named_ranges_map = {}
+        named_ranges_map = {}  # Structure: {(sheet_name, row, col): (name, r_offset, c_offset)}
 
         # Build named ranges map
         for name in wb.defined_names:
@@ -30,11 +30,10 @@ if uploaded_files:
                     cell_range = ws[coord] if ":" in coord else [[ws[coord]]]
                     min_row = min(cell.row for row in cell_range for cell in row)
                     min_col = min(cell.column for row in cell_range for cell in row)
-                    coords = {
-                        (cell.row, cell.column): (name, cell.row - min_row + 1, cell.column - min_col + 1)
-                        for row in cell_range for cell in row
-                    }
-                    named_ranges_map.update(coords)
+                    for row in cell_range:
+                        for cell in row:
+                            key = (sheet_name, cell.row, cell.column)
+                            named_ranges_map[key] = (name, cell.row - min_row + 1, cell.column - min_col + 1)
                 except:
                     continue
 
@@ -77,7 +76,7 @@ if uploaded_files:
                                 col_letter, row_number = match.groups()
                                 row_num = int(row_number)
                                 col_num = openpyxl.utils.column_index_from_string(col_letter)
-                                key = (row_num, col_num)
+                                key = (sheet_name, row_num, col_num)
                                 if key in named_ranges_map:
                                     nr_name, r_offset, c_offset = named_ranges_map[key]
                                     return f"{nr_name}[{r_offset}][{c_offset}]"
@@ -89,7 +88,7 @@ if uploaded_files:
                 except Exception as e:
                     entries.append(f"Error accessing {ref}: {e}")
 
-            with st.expander(f"\U0001F4CC Named Range: {name}"):
+            with st.expander(f"\U0001F4CC Named Range: {name} [{uploaded_file.name}][{sheet_name}][{ref}]"):
                 st.write("**Cell Coordinates, Raw Formula/Value, and Reference Formula:**")
                 st.code("\n".join(entries), language="text")
 else:
