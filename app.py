@@ -55,12 +55,7 @@ if uploaded_files:
                         })
                         continue
 
-                    first_cell = True
-                    is_spill = False
-                    spill_formula = None
-                    spill_value_count = 0
-
-                    for row in cell_range:
+                                        for row in cell_range:
                         for cell in row:
                             raw_formula = None
 
@@ -70,22 +65,15 @@ if uploaded_files:
                                 raw_formula = str(cell.value.text).strip()
 
                             if raw_formula:
-                                if first_cell:
-                                    spill_formula = raw_formula
-                                    formulas.append(f"[spill] {spill_formula}")
+                            formulas.append(raw_formula)
                             elif cell.value is not None:
-                                if first_cell:
-                                    formulas.append(f"[value] {cell.value}")
-                                else:
-                                    spill_value_count += 1
+                            formulas.append(f"[value] {cell.value}")
 
-                            first_cell = False
+                            
 
-                    if spill_formula and spill_value_count > 0:
-                        formulas.append(f"... [spilled result across {spill_value_count} cells]")
+                    
 
-                    if is_spill and len(formulas) == 1:
-                        formulas.append(f"... [spilled result across {len(cell_range)*len(cell_range[0]) - 1} cells]")
+                    
 
                     result.append({
                         "Named Range": name,
