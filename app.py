@@ -66,16 +66,13 @@ if uploaded_files:
                             elif hasattr(cell.value, "text"):
                                 raw_formula = str(cell.value.text).strip()
 
-                            # fallback: top-left cell style extraction
                             if raw_formula:
                                 formulas.append(raw_formula)
                             elif cell.value is not None:
                                 formulas.append(f"[value] {cell.value}")
 
-                            # break after first cell to mimic previous behavior
-                            break
-                        elif cell.value is not None:
-                            formulas.append(f"[value] {cell.value}")
+                            break  # Only process top-left cell
+                        break
 
                     result.append({
                         "Named Range": name,
