@@ -55,6 +55,9 @@ if uploaded_files:
         match = re.search(r"\[([^\]]+\\.xlsx)\]", path_str)
         if match:
             return match.group(1)
+        match = re.search(r"\[\d+\]", path_str)
+        if match:
+            return "UnknownWorkbook"
         return "UnknownWorkbook"
 
     def remap_formula(formula, current_file, current_sheet):
@@ -69,9 +72,10 @@ if uploaded_files:
             if "!" in ref:
                 sheet_part, addr = ref.split("!")
                 if sheet_part.startswith("["):
-                    external_file = extract_workbook_name(sheet_part)
-                    if external_file == "UnknownWorkbook":
+                    extracted_name = extract_workbook_name(sheet_part)
+                    if extracted_name == "UnknownWorkbook":
                         return ref
+                    external_file = extracted_name
                     sheet_name = sheet_part.split("]")[-1]
                 else:
                     sheet_name = sheet_part
@@ -98,9 +102,10 @@ if uploaded_files:
             if "!" in ref:
                 sheet_part, addr = ref.split("!")
                 if sheet_part.startswith("["):
-                    external_file = extract_workbook_name(sheet_part)
-                    if external_file == "UnknownWorkbook":
+                    extracted_name = extract_workbook_name(sheet_part)
+                    if extracted_name == "UnknownWorkbook":
                         return ref
+                    external_file = extracted_name
                     sheet_name = sheet_part.split("]")[-1]
                 else:
                     sheet_name = sheet_part
