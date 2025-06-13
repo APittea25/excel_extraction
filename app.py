@@ -71,7 +71,7 @@ if uploaded_files:
                         })
                         continue
 
-                                        for row in cell_range:
+                    for row in cell_range:
                         for cell in row:
                             raw_formula = None
 
