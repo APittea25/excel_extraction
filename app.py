@@ -4,6 +4,8 @@ from openpyxl.utils import column_index_from_string, get_column_letter
 from io import BytesIO
 import re
 import os
+from collections import defaultdict
+import graphviz
 
 st.set_page_config(page_title="Named Range Formula Remapper", layout="wide")
 st.title("\U0001F4D8 Named Range Coordinates + Formula Remapping")
@@ -161,7 +163,6 @@ if uploaded_files:
             replaced_formula = replaced_formula[:start] + remapped + replaced_formula[end:]
             offset += len(remapped) - len(raw)
 
-        # Additional remapping for external named ranges like [2]!kapp2v_diff_sd
         named_ref_pattern = r"\[(\d+)\]!([A-Za-z0-9_]+)"
         matches = list(re.finditer(named_ref_pattern, replaced_formula))
         offset = 0
@@ -179,6 +180,7 @@ if uploaded_files:
 
         return replaced_formula
 
+    dependencies = defaultdict(set)
     for (name, (file_name, sheet_name, coord_set, min_row, min_col)) in all_named_ref_info.items():
         entries = []
 
@@ -210,6 +212,11 @@ if uploaded_files:
 
                         if formula:
                             remapped = remap_formula(formula, file_name, sheet_name)
+
+                            for other_name in all_named_ref_info:
+                                if other_name != name and re.search(rf"\b{re.escape(other_name)}\b", remapped):
+                                    dependencies[name].add(other_name)
+
                         elif cell.value is not None:
                             formula = f"[value] {str(cell.value)}"
                             remapped = formula
@@ -226,5 +233,18 @@ if uploaded_files:
 
         with st.expander(f"\U0001F4CC Named Range: `{name}` → `{sheet_name}!{ref_range}` in `{file_name}`"):
             st.code("\n".join(entries), language="text")
+
+    if dependencies:
+        st.subheader("✨ Dependency Graph of Named References")
+        dot = graphviz.Digraph()
+        dot.attr(rankdir="LR")
+
+        for node in all_named_ref_info:
+            dot.node(node)
+        for src, targets in dependencies.items():
+            for tgt in targets:
+                dot.edge(src, tgt)
+
+        st.graphviz_chart(dot)
 else:
     st.info("⬆️ Upload one or more `.xlsx` files to begin.")
