@@ -1,6 +1,7 @@
 import streamlit as st
 from openpyxl import load_workbook
 from openpyxl.utils import column_index_from_string, get_column_letter
+from openpyxl.formula.array import ArrayFormula
 from io import BytesIO
 import re
 
@@ -140,9 +141,14 @@ if uploaded_files:
                             label = f"{name}[{row_offset}][{col_offset}]"
 
                             try:
-                                if cell.data_type == 'f' or hasattr(cell, 'formula'):
-                                    raw_formula = str(getattr(cell, 'value', ''))
-                                    formula = raw_formula.strip() if isinstance(raw_formula, str) else str(raw_formula)
+                                raw_formula = None
+                                if cell.data_type == 'f':
+                                    raw_formula = str(cell.value)
+                                elif isinstance(cell.value, ArrayFormula):
+                                    raw_formula = str(cell.value.text)
+
+                                if raw_formula and raw_formula.startswith("="):
+                                    formula = raw_formula.strip()
                                     remapped = remap_formula(formula, sheet_name)
                                 elif cell.value is not None:
                                     formula = f"[value] {str(cell.value)}"
