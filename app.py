@@ -4,13 +4,28 @@ from openpyxl.utils import column_index_from_string, get_column_letter
 from io import BytesIO
 import re
 import os
+import xlwings as xw
 
 st.set_page_config(page_title="Named Range Formula Remapper", layout="wide")
 st.title("\U0001F4D8 Named Range Coordinates + Formula Remapping")
 
 uploaded_files = st.file_uploader("\U0001F4C2 Upload Excel files", type=["xlsx"], accept_multiple_files=True)
 
+external_workbook_map = {}
+
+# Use xlwings to find external references
 if uploaded_files:
+    for uploaded_file in uploaded_files:
+        file_path = uploaded_file.name
+        try:
+            wb = xw.Book(file_path, update_links=False, read_only=True)
+            if wb.api.LinkSources():
+                for idx, link in enumerate(wb.api.LinkSources()):
+                    external_workbook_map[f"[{idx + 1}]"] = os.path.basename(link)
+            wb.close()
+        except Exception as e:
+            st.warning(f"xlwings failed to open {file_path}: {e}")
+
     all_named_cell_map = {}
     all_named_ref_info = {}
     all_sheet_names = {}
@@ -48,16 +63,13 @@ if uploaded_files:
                 except:
                     continue
 
-    def extract_workbook_name(path_str):
-        match = re.search(r"\\([^\\\[]+\.xlsx)\]", path_str)
+    def extract_workbook_name(sheet_part):
+        match = re.match(r"\[(\d+)\]", sheet_part)
+        if match:
+            return external_workbook_map.get(match.group(0), f"ExternalWorkbook{match.group(1)}")
+        match = re.match(r"\[([^\]]+)\]", sheet_part)
         if match:
             return match.group(1)
-        match = re.search(r"\[([^\]]+\.xlsx)\]", path_str)
-        if match:
-            return match.group(1)
-        match = re.search(r"\[(\d+)\]", path_str)
-        if match:
-            return f"ExternalWorkbook{match.group(1)}"
         return "UnknownWorkbook"
 
     def remap_formula(formula, current_file, current_sheet):
