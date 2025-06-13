@@ -1,5 +1,6 @@
 import streamlit as st
 from openpyxl import load_workbook
+from openpyxl.workbook.defined_name import DefinedName
 from io import BytesIO
 
 st.set_page_config(page_title="Named Range Inspector", layout="wide")
@@ -12,9 +13,14 @@ def extract_named_ranges(file, filename):
     wb = load_workbook(filename=BytesIO(file.read()), data_only=False)
     result = []
 
-    for named_range in wb.defined_names:
-        name = named_range.name
-        destinations = list(named_range.destinations)
+    for name in wb.defined_names.defined_names:
+        defined_name = wb.defined_names[name]
+
+        # Skip if not referring to a range (e.g., constant)
+        if not isinstance(defined_name, DefinedName):
+            continue
+
+        destinations = list(defined_name.destinations)
 
         for sheet_name, cell_range in destinations:
             try:
