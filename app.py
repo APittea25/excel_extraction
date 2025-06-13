@@ -6,6 +6,7 @@ import re
 import os
 from collections import defaultdict
 import graphviz
+from fpdf import FPDF
 
 st.set_page_config(page_title="Named Range Formula Remapper", layout="wide")
 st.title("\U0001F4D8 Named Range Coordinates + Formula Remapping")
@@ -28,7 +29,7 @@ st.markdown("""
     </script>
 """, unsafe_allow_html=True)
 
-# --- Print Button ---
+# --- Print and Export Button ---
 st.markdown("""
     <div style='text-align: right; margin-bottom: 1em;'>
         <button onclick="window.print()">🖨️ Print This Page</button>
@@ -46,6 +47,8 @@ for i in range(1, 10):
 
 uploaded_files = st.file_uploader("\U0001F4C2 Upload Excel files", type=["xlsx"], accept_multiple_files=True)
 
+pdf_content = []
+
 if uploaded_files:
     all_named_cell_map = {}
     all_named_ref_info = {}
@@ -56,6 +59,7 @@ if uploaded_files:
         display_name = uploaded_file.name
         file_display_names[display_name] = uploaded_file
         st.header(f"\U0001F4C4 File: `{display_name}`")
+        pdf_content.append(f"File: {display_name}\n")
         wb = load_workbook(BytesIO(uploaded_file.read()), data_only=False)
 
         for name in wb.defined_names:
@@ -169,4 +173,56 @@ if uploaded_files:
             offset += len(remapped) - len(raw)
         return replaced_formula
 
-    # Rest of the app logic (remapping and rendering) stays unchanged...
+    for name, (file_name, sheet_name, coord_set, min_row, min_col) in all_named_ref_info.items():
+        try:
+            file_bytes = file_display_names[file_name]
+            wb = load_workbook(BytesIO(file_bytes.getvalue()), data_only=False)
+            ws = wb[sheet_name]
+            min_col_letter = get_column_letter(min([c for (_, c) in coord_set]))
+            max_col_letter = get_column_letter(max([c for (_, c) in coord_set]))
+            min_row_num = min([r for (r, _) in coord_set])
+            max_row_num = max([r for (r, _) in coord_set])
+            ref_range = f"{min_col_letter}{min_row_num}:{max_col_letter}{max_row_num}"
+            cell_range = ws[ref_range] if ":" in ref_range else [[ws[ref_range]]]
+
+            entries = []
+            for row in cell_range:
+                for cell in row:
+                    row_offset = cell.row - min_row + 1
+                    col_offset = cell.column - min_col + 1
+                    label = f"{name}[{row_offset}][{col_offset}]"
+                    try:
+                        formula = cell.value if isinstance(cell.value, str) and cell.value.startswith("=") else None
+                        if formula:
+                            remapped = remap_formula(formula, file_name, sheet_name)
+                        elif cell.value is not None:
+                            formula = f"[value] {str(cell.value)}"
+                            remapped = formula
+                        else:
+                            formula = "(empty)"
+                            remapped = formula
+                    except Exception as e:
+                        formula = f"[error reading cell: {e}]"
+                        remapped = formula
+
+                    entries.append(f"{label} = {formula}\n → {remapped}")
+                    pdf_content.append(f"{label} = {formula} -> {remapped}\n")
+
+            with st.expander(f"📌 Named Range: `{name}` → `{sheet_name}!{ref_range}` in `{file_name}`"):
+                st.code("\n".join(entries), language="text")
+
+        except Exception as e:
+            st.error(f"❌ Error processing {name} in {sheet_name}: {e}")
+
+    # Downloadable PDF Export
+    if st.button("📄 Export as PDF"):
+        pdf = FPDF()
+        pdf.set_auto_page_break(auto=True, margin=15)
+        pdf.add_page()
+        pdf.set_font("Arial", size=10)
+        for line in pdf_content:
+            pdf.multi_cell(0, 5, line)
+        st.download_button("Download PDF", data=pdf.output(dest="S").encode("latin1"), file_name="remapped_formulas.pdf", mime="application/pdf")
+
+else:
+    st.info("⬆️ Upload one or more `.xlsx` files to begin.")
