@@ -211,9 +211,9 @@ if uploaded_files:
 
         named_ref_formulas[name] = formulas_for_graph
     
-        with st.expander(
-        f"📌 Named Range: `{name}` → `{sheet_name}` in `{file_name}`",
-        expanded=st.session_state.expanded_all
+with st.expander(
+    f"📌 Named Range: `{name}` → `{sheet_name}` in `{file_name}`",
+    expanded=st.session_state.expanded_all
 ):
     st.code("\n".join(entries), language="text")
 
