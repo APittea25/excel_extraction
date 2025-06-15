@@ -35,9 +35,9 @@ if uploaded_files:
 
     # Step 1: Load named references
     for uploaded_file in uploaded_files:
-        f = uploaded_file.name
-        file_uploads[f] = uploaded_file
-        st.header(f"📄 File: `{f}`")
+        fname = uploaded_file.name
+        file_uploads[fname] = uploaded_file
+        st.header(f"📄 File: `{fname}`")
         wb = load_workbook(BytesIO(uploaded_file.read()), data_only=False)
 
         for nm in wb.defined_names:
@@ -54,82 +54,86 @@ if uploaded_files:
                     coords = set()
                     for row in cells:
                         for c in row:
-                            key = (f, sht, c.row, c.column)
-                            all_named_cell_map[key] = (nm, c.row - min_r + 1, c.column - min_c + 1)
+                            key = (fname, sht, c.row, c.column)
+                            all_named_cell_map[key] = (
+                                nm,
+                                c.row - min_r + 1,
+                                c.column - min_c + 1
+                            )
                             coords.add((c.row, c.column))
-                    all_named_ref_info[nm] = (f, sht, coords, min_r, min_c)
+                    all_named_ref_info[nm] = (fname, sht, coords, min_r, min_c)
                 except:
                     continue
 
-    # Step 2: Remapping
+    # Step 2: Formula remapping
     def remap_formula(formula, curr_file, curr_sheet):
         if not formula:
             return ""
-        def cell_address(r, c): return f"{get_column_letter(c)}{r}"
+        def addr(r, c): return f"{get_column_letter(c)}{r}"
 
         def adjust_external(raw):
             if raw.startswith("[") and "]!" in raw:
                 idx = raw.split("]")[0] + "]"
-                if idx in external_refs:
-                    return raw.replace(idx, f"[{external_refs[idx]}]")
+                return raw.replace(idx, f"[{external_refs.get(idx, idx)}]")
             return raw
 
-        pattern = re.compile(r"(?:\[[^\]]+\]!)?[A-Za-z0-9_]+!\$?[A-Z]{1,3}\$?[0-9]+(?::\$?[A-Z]{1,3}\$?[0-9]+)?")
-        modified = formula
+        pattern = re.compile(
+            r"(?:\[[^\]]+\]!)?[A-Za-z0-9_]+!\$?[A-Z]{1,3}\$?[0-9]+"
+            r"(?::\$?[A-Z]{1,3}\$?[0-9]+)?"
+        )
+        out = formula
         shift = 0
 
         for m in pattern.finditer(formula):
-            raw = m.group(0)
-            raw = adjust_external(raw)
-
+            raw = adjust_external(m.group(0))
             parts = raw.split("!")
             sheet = curr_sheet if len(parts) == 1 else parts[-2].strip("[]")
-            addr = parts[-1].replace("$", "")
-            if ":" in addr:
-                start, end = addr.split(":")
-                for cell in (start, end):
-                    col, row = re.match(r"([A-Z]+)([0-9]+)", cell).groups()
+            cell_ref = parts[-1].replace("$", "")
+            match_range = ":" in cell_ref
+
+            if match_range:
+                start, end = cell_ref.split(":")
+                for tmp in (start, end):
+                    col, row = re.match(r"([A-Z]+)([0-9]+)", tmp).groups()
                     key = (curr_file, sheet, int(row), column_index_from_string(col))
                     if key in all_named_cell_map:
                         nm, ro, co = all_named_cell_map[key]
                         raw = f"[{curr_file}]{nm}[{ro}][{co}]"
                         break
             else:
-                col, row = re.match(r"([A-Z]+)([0-9]+)", addr).groups()
+                col, row = re.match(r"([A-Z]+)([0-9]+)", cell_ref).groups()
                 key = (curr_file, sheet, int(row), column_index_from_string(col))
                 if key in all_named_cell_map:
                     nm, ro, co = all_named_cell_map[key]
                     raw = f"[{curr_file}]{nm}[{ro}][{co}]"
 
-            start, end = m.start() + shift, m.end() + shift
-            modified = modified[:start] + raw + modified[end:]
-            shift += len(raw) - (end - start)
+            s, e = m.start() + shift, m.end() + shift
+            out = out[:s] + raw + out[e:]
+            shift += len(raw) - (e - s)
 
-        return modified
+        return out
 
     # Step 3: Extract remapped formulas
     for nm, (f, sht, coords, min_r, min_c) in all_named_ref_info.items():
-        try:
-            wb = load_workbook(BytesIO(file_uploads[f].getvalue()), data_only=False)
-            ws = wb[sht]
-            formulas = []
-            entries = []
+        wb = load_workbook(BytesIO(file_uploads[f].getvalue()), data_only=False)
+        ws = wb[sht]
+        formulas = []
+        entries = []
 
-            for r, c in sorted(coords):
-                cell = ws[f"{get_column_letter(c)}{r}"]
-                raw_value = cell.value
-                raw_formula = raw_value if isinstance(raw_value, str) and raw_value.startswith("=") else str(raw_value)
-                rem = remap_formula(raw_formula, f, sht)
-                entries.append(f"{nm}[{r-min_r+1}][{c-min_c+1}] = {raw_formula}\n → {rem}")
-                if rem: formulas.append(rem)
+        for r, c in sorted(coords):
+            cell = ws[f"{get_column_letter(c)}{r}"]
+            raw_value = cell.value
+            raw_formula = raw_value if isinstance(raw_value, str) and raw_value.startswith("=") else str(raw_value)
+            remap = remap_formula(raw_formula, f, sht)
+            entries.append(f"{nm}[{r-min_r+1}][{c-min_c+1}] = {raw_formula}\n → {remap}")
+            if remap:
+                formulas.append(remap)
 
-            named_ref_formulas[nm] = formulas
-            with st.expander(f"📌 `{nm}` → `{sht}` in `{f}`"):
-                st.code("\n".join(entries), language="text")
-        except Exception as e:
-            st.error(f"Error in processing `{nm}`: {e}")
+        named_ref_formulas[nm] = formulas
+        with st.expander(f"📌 `{nm}` → `{sht}` in `{f}`"):
+            st.code("\n".join(entries), language="text")
 
-    # Step 4: Build optimized dependency graph
+    # Step 4: Optimized and fixed dependency graph
     st.subheader("🔗 Dependency Graph")
     dot = graphviz.Digraph()
     dot.attr(rankdir="LR")
@@ -138,18 +142,16 @@ if uploaded_files:
     for nm, (f, sht, *_rest) in all_named_ref_info.items():
         groups[f].append((nm, sht))
 
-    for idx, (f, nodes) in enumerate(groups.items()):
-        with dot.subgraph(f"cluster_{idx}") as c:
-            c.attr(label=f, style="filled", color="lightgrey")
-            for nm, sht in nodes:
-                col = "blue"
-                c.node(nm, color=col)
+    for f, nodes in groups.items():
+        sub = dot.subgraph(name=f"cluster_{f}", graph_attr={'label': f, 'style': 'filled', 'color': 'lightgrey'})
+        for nm, sht in nodes:
+            sub.node(nm, color='blue')
 
     all_names = set(named_ref_formulas)
-    for tgt, forms in named_ref_formulas.items():
-        text = " ".join(forms)
-        for src in all_names:
-            if src != tgt and re.search(rf"\b{re.escape(src)}\b", text):
+    for tgt, fs in named_ref_formulas.items():
+        txt = " ".join(fs)
+        for src in all_names - {tgt}:
+            if re.search(rf"\b{re.escape(src)}\b", txt):
                 dot.edge(src, tgt)
 
     st.graphviz_chart(dot)
