@@ -3,13 +3,14 @@ from openpyxl import load_workbook
 from openpyxl.utils import column_index_from_string, get_column_letter
 from io import BytesIO
 import re
+import os
 from collections import defaultdict
 import graphviz
 
 st.set_page_config(page_title="Named Range Formula Remapper", layout="wide")
-st.title("📘 Named Range Coordinates + Formula Remapping")
+st.title("\U0001F4D8 Named Range Coordinates + Formula Remapping")
 
-# Expand all expanders on load
+# Print button and JS to expand all expanders
 st.markdown("""
     <script>
     window.addEventListener('load', function() {
@@ -18,16 +19,22 @@ st.markdown("""
     </script>
 """, unsafe_allow_html=True)
 
-# Manual reference mapping
+st.markdown("""
+    <div style='text-align: right; margin-bottom: 1em;'>
+        <button onclick="window.print()">🖨️ Print This Page</button>
+    </div>
+""", unsafe_allow_html=True)
+
+# Allow manual mapping of external references like [1], [2], etc.
 st.subheader("Manual Mapping for External References")
 external_refs = {}
 for i in range(1, 10):
-    key = f"[{i}]"
-    val = st.text_input(f"Map {key} to workbook name", key=key)
-    if val:
-        external_refs[key] = val
+    ref_key = f"[{i}]"
+    workbook_name = st.text_input(f"Map external reference {ref_key} to workbook name (e.g., Mortality_Model_Inputs.xlsx)", key=ref_key)
+    if workbook_name:
+        external_refs[ref_key] = workbook_name
 
-uploaded_files = st.file_uploader("📁 Upload Excel files", type=["xlsx"], accept_multiple_files=True)
+uploaded_files = st.file_uploader("\U0001F4C2 Upload Excel files", type=["xlsx"], accept_multiple_files=True)
 
 if uploaded_files:
     all_named_cell_map = {}
@@ -38,7 +45,7 @@ if uploaded_files:
     for uploaded_file in uploaded_files:
         display_name = uploaded_file.name
         file_display_names[display_name] = uploaded_file
-        st.header(f"📄 File: `{display_name}`")
+        st.header(f"\U0001F4C4 File: `{display_name}`")
         wb = load_workbook(BytesIO(uploaded_file.read()), data_only=False)
 
         for name in wb.defined_names:
@@ -50,13 +57,17 @@ if uploaded_files:
                     ws = wb[sheet_name]
                     ref_clean = ref.replace("$", "").split("!")[-1]
                     cells = ws[ref_clean] if ":" in ref_clean else [[ws[ref_clean]]]
+
                     min_row = min(cell.row for row in cells for cell in row)
                     min_col = min(cell.column for row in cells for cell in row)
+
                     coord_set = set()
                     for row in cells:
                         for cell in row:
                             r, c = cell.row, cell.column
-                            all_named_cell_map[(display_name, sheet_name, r, c)] = (name, r - min_row + 1, c - min_col + 1)
+                            row_offset = r - min_row + 1
+                            col_offset = c - min_col + 1
+                            all_named_cell_map[(display_name, sheet_name, r, c)] = (name, row_offset, col_offset)
                             coord_set.add((r, c))
                     all_named_ref_info[name] = (display_name, sheet_name, coord_set, min_row, min_col)
                 except:
@@ -65,80 +76,167 @@ if uploaded_files:
     def remap_formula(formula, current_file, current_sheet):
         if not formula:
             return ""
+
         def cell_address(row, col):
             return f"{get_column_letter(col)}{row}"
 
-        pattern = r"(?:\[[^\]]+\])?[A-Za-z0-9_]+!\$?[A-Z]{1,3}\$?[0-9]+(?::\$?[A-Z]{1,3}\$?[0-9]+)?"
-        parts = re.finditer(pattern, formula)
-        result = formula
-        offset = 0
-
-        for part in parts:
-            raw = part.group(0)
-            ref = raw.split("!")[-1].replace("$", "")
-            if ":" in ref:
-                result = result[:part.start() + offset] + f"[{current_file}]{current_sheet}!{ref}" + result[part.end() + offset:]
-                offset += len(f"[{current_file}]{current_sheet}!{ref}") - len(raw)
+        def remap_single_cell(ref, default_file, default_sheet):
+            if "!" in ref:
+                sheet_part, addr = ref.split("!")
+                match = re.match(r"\[(\d+)\]", sheet_part)
+                if match:
+                    external_ref = match.group(0)
+                    external_file = external_refs.get(external_ref, external_ref)
+                    return f"[{external_file}]{ref}"
+                sheet_name = sheet_part
             else:
-                col = column_index_from_string(re.findall(r"[A-Z]+", ref)[0])
-                row = int(re.findall(r"[0-9]+", ref)[0])
-                key = (current_file, current_sheet, row, col)
-                if key in all_named_cell_map:
-                    name, ro, co = all_named_cell_map[key]
-                    new_ref = f"[{current_file}]{name}[{ro}][{co}]"
-                    result = result[:part.start() + offset] + new_ref + result[part.end() + offset:]
-                    offset += len(new_ref) - len(raw)
-        return result
+                sheet_name = default_sheet
+                addr = ref
 
-    reverse_refs = defaultdict(list)
+            addr = addr.replace("$", "").upper()
+            match = re.match(r"([A-Z]+)([0-9]+)", addr)
+            if not match:
+                return ref
+            col_str, row_str = match.groups()
+            row = int(row_str)
+            col = column_index_from_string(col_str)
 
-    for name, (file_name, sheet_name, coords, min_row, min_col) in all_named_ref_info.items():
+            key = (default_file, sheet_name, row, col)
+            if key in all_named_cell_map:
+                name, r_off, c_off = all_named_cell_map[key]
+                return f"[{default_file}]{name}[{r_off}][{c_off}]"
+            else:
+                return f"[{default_file}]{sheet_name}!{addr}"
+
+        def remap_range(ref, default_file, default_sheet):
+            if ref.startswith("["):
+                match = re.match(r"\[(\d+)\]", ref)
+                if match:
+                    external_ref = match.group(0)
+                    external_file = external_refs.get(external_ref, external_ref)
+                    return f"[{external_file}]{ref}"
+
+            if "!" in ref:
+                sheet_name, addr = ref.split("!")
+            else:
+                sheet_name = default_sheet
+                addr = ref
+
+            addr = addr.replace("$", "").upper()
+            if ":" not in addr:
+                return remap_single_cell(ref, default_file, default_sheet)
+
+            start, end = addr.split(":")
+            m1 = re.match(r"([A-Z]+)([0-9]+)", start)
+            m2 = re.match(r"([A-Z]+)([0-9]+)", end)
+            if not m1 or not m2:
+                return ref
+            start_col = column_index_from_string(m1.group(1))
+            start_row = int(m1.group(2))
+            end_col = column_index_from_string(m2.group(1))
+            end_row = int(m2.group(2))
+
+            label_set = set()
+            for row in range(start_row, end_row + 1):
+                for col in range(start_col, end_col + 1):
+                    key = (default_file, sheet_name, row, col)
+                    if key in all_named_cell_map:
+                        name, r_off, c_off = all_named_cell_map[key]
+                        label_set.add(f"[{default_file}]{name}[{r_off}][{c_off}]")
+                    else:
+                        label_set.add(f"[{default_file}]{sheet_name}!{cell_address(row, col)}")
+            return ", ".join(sorted(label_set))
+
+        pattern = r"(?<![A-Za-z0-9_])(?:\[[^\]]+\])?[A-Za-z0-9_]+!\$?[A-Z]{1,3}\$?[0-9]{1,7}(?::\$?[A-Z]{1,3}\$?[0-9]{1,7})?|(?<![A-Za-z0-9_])\$?[A-Z]{1,3}\$?[0-9]{1,7}(?::\$?[A-Z]{1,3}\$?[0-9]{1,7})?"
+        matches = list(re.finditer(pattern, formula))
+        replaced_formula = formula
+        offset = 0
+        for match in matches:
+            raw = match.group(0)
+            remapped = remap_range(raw, current_file, current_sheet)
+            start, end = match.start() + offset, match.end() + offset
+            replaced_formula = replaced_formula[:start] + remapped + replaced_formula[end:]
+            offset += len(remapped) - len(raw)
+        return replaced_formula
+
+    for (name, (file_name, sheet_name, coord_set, min_row, min_col)) in all_named_ref_info.items():
+        entries = []
+        formulas_for_graph = []
+
         try:
-            wb = load_workbook(BytesIO(file_display_names[file_name].getvalue()), data_only=False)
+            file_bytes = file_display_names[file_name]
+            wb = load_workbook(BytesIO(file_bytes.getvalue()), data_only=False)
             ws = wb[sheet_name]
-            ref_cells = [[ws.cell(r, c) for c in range(min(c for (_, c) in coords), max(c for (_, c) in coords)+1)]
-                         for r in range(min(r for (r, _) in coords), max(r for (r, _) in coords)+1)]
-            entries = []
-            formulas = []
+            min_col_letter = get_column_letter(min([c for (_, c) in coord_set]))
+            max_col_letter = get_column_letter(max([c for (_, c) in coord_set]))
+            min_row_num = min([r for (r, _) in coord_set])
+            max_row_num = max([r for (r, _) in coord_set])
+            ref_range = f"{min_col_letter}{min_row_num}:{max_col_letter}{max_row_num}"
+            cell_range = ws[ref_range] if ":" in ref_range else [[ws[ref_range]]]
 
-            for row in ref_cells:
+            for row in cell_range:
                 for cell in row:
-                    r_offset = cell.row - min_row + 1
-                    c_offset = cell.column - min_col + 1
-                    label = f"{name}[{r_offset}][{c_offset}]"
-                    formula = str(cell.value).strip() if cell.value and str(cell.value).startswith("=") else ""
-                    remapped = remap_formula(formula, file_name, sheet_name) if formula else str(cell.value)
-                    if remapped:
-                        formulas.append(remapped)
-                    entries.append(f"{label} = {formula}\n → {remapped}")
-            named_ref_formulas[name] = formulas
-            with st.expander(f"📌 `{name}` → `{sheet_name}` in `{file_name}`"):
-                st.code("\n".join(entries), language="text")
-        except Exception as e:
-            st.error(f"❌ Error processing {name}: {e}")
+                    row_offset = cell.row - min_row + 1
+                    col_offset = cell.column - min_col + 1
+                    label = f"{name}[{row_offset}][{col_offset}]"
 
-    # ✅ Efficient dependency analysis
+                    try:
+                        formula = None
+                        if isinstance(cell.value, str) and cell.value.startswith("="):
+                            formula = cell.value.strip()
+                        elif hasattr(cell, 'value') and hasattr(cell.value, 'text'):
+                            formula = str(cell.value.text).strip()
+                        elif hasattr(cell, 'value'):
+                            formula = str(cell.value)
+
+                        if formula:
+                            remapped = remap_formula(formula, file_name, sheet_name)
+                            formulas_for_graph.append(remapped)
+                        elif cell.value is not None:
+                            formula = f"[value] {str(cell.value)}"
+                            remapped = formula
+                        else:
+                            formula = "(empty)"
+                            remapped = formula
+                    except Exception as e:
+                        formula = f"[error reading cell: {e}]"
+                        remapped = formula
+
+                    entries.append(f"{label} = {formula}\n → {remapped}")
+        except Exception as e:
+            entries.append(f"❌ Error accessing `{name}` in `{sheet_name}`: {e}")
+
+        named_ref_formulas[name] = formulas_for_graph
+
+        with st.expander(f"📌 Named Range: `{name}` → `{sheet_name}` in `{file_name}`"):
+            st.code("\n".join(entries), language="text")
+
+    # Dependency Graph
     st.subheader("🔗 Dependency Graph")
     dot = graphviz.Digraph()
     dot.attr(compound='true', rankdir='LR')
 
-    group_by_file = defaultdict(list)
-    for name, (fname, sheet, *_rest) in all_named_ref_info.items():
-        group_by_file[fname].append((name, sheet))
+    grouped = defaultdict(list)
+    for name, (file, *_rest) in all_named_ref_info.items():
+        grouped[file].append(name)
 
-    all_names = set(named_ref_formulas.keys())
+    dependencies = defaultdict(set)
+    for target, formulas in named_ref_formulas.items():
+        joined = " ".join(formulas)
+        for source in named_ref_formulas:
+            if source != target and re.search(rf"\b{re.escape(source)}\b", joined):
+                dependencies[target].add(source)
 
-    for idx, (file, nodes) in enumerate(group_by_file.items()):
-        with dot.subgraph(name=f"cluster_{idx}") as c:
-            c.attr(label=file, style='filled', color='lightgrey')
-            for name, sheet in nodes:
-                c.node(name, color="blue" if "Sheet" in sheet else "black")
+    for i, (file_name, nodes) in enumerate(grouped.items()):
+        with dot.subgraph(name=f"cluster_{i}") as c:
+            c.attr(label=file_name)
+            c.attr(style='filled', color='lightgrey')
+            for node in nodes:
+                c.node(node)
 
-    for tgt, formulas in named_ref_formulas.items():
-        formula_text = " ".join(formulas)
-        for src in all_names:
-            if src != tgt and src in formula_text:
-                dot.edge(src, tgt)
+    for target, sources in dependencies.items():
+        for source in sources:
+            dot.edge(source, target)
 
     st.graphviz_chart(dot)
 else:
