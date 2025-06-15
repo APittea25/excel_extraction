@@ -229,22 +229,27 @@ if uploaded_files:
         ):
             st.code("\n".join(entries), language="text")
 
-    # ⚠️ Task 4: Flag raw cell references not part of any named range
-        raw_pattern = re.compile(r"\b[A-Z]{1,3}[0-9]{1,7}\b")
-    warnings = []
-    for name, formulas in named_ref_formulas.items():
-        for f in formulas:
-            if not f:
+# —– Missing direct cell references (not in any named range) —–
+st.subheader("⚠️ Missing Direct Cell References")
+
+# regex to capture simple A1 references
+raw_ref_re = re.compile(r"\b([A-Z]{1,3}[0-9]{1,7})\b")
+
+missing_refs = defaultdict(set)
+
+for nm, formulas in named_ref_formulas.items():
+    for f in formulas:
+        for ref in raw_ref_re.findall(f):
+            # ignore if this raw reference is part of a named range label, e.g. [Name][1][2]
+            if re.search(rf"\[{nm}\]\[\d+\]\[\d+\]", f):
                 continue
-            for raw in set(raw_pattern.findall(f)):
-                # skip if raw is part of any named range label
-                if not re.search(rf"\[{re.escape(name)}\]", f) and raw.isupper():
-                    warnings.append(f"• **{name}** formula contains raw cell `{raw}`")
-    if warnings:
-        st.warning(
-            "⚠️ Found formulas using raw cell references instead of named ranges:\n\n"
-            + "\n".join(warnings)
-        )
+            missing_refs[nm].add(ref)
+
+if missing_refs:
+    for nm, refs in missing_refs.items():
+        st.warning(f"In named range **{nm}**, these cell references were found that aren't part of any named range: {', '.join(sorted(refs))}")
+else:
+    st.success("No missing direct cell references found.")
     
     # Dependency Graph
     st.subheader("🔗 Dependency Graph")
