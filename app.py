@@ -250,7 +250,7 @@ if uploaded_files:
                     f"{', '.join(sorted(refs))}"
                 )
         else:
-            st.success("✅ No missing direct cell references found.")
+        st.success("✅ No missing direct cell references found.")
     
     # Dependency Graph
     st.subheader("🔗 Dependency Graph")
