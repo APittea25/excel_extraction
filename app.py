@@ -230,18 +230,21 @@ if uploaded_files:
             st.code("\n".join(entries), language="text")
 
     # ⚠️ Task 4: Flag raw cell references not part of any named range
-pattern_raw = re.compile(r"\b[A-Z]{1,3}[0-9]{1,7}\b")
-warnings = []
-for nm, formulas in named_ref_formulas.items():
-    for f in formulas:
-        raw_refs = pattern_raw.findall(f or "")
-        for raw in raw_refs:
-            # Skip if this raw ref already part of a named range pattern
-            if f and f.count(f"[{nm}]") == 0:
-                warnings.append(f"• **{nm}** references raw cell `{raw}`")
-if warnings:
-    st.warning("⚠️ Some formulas use raw cell references instead of named ranges:\n" +
-               "\n".join(sorted(set(warnings))))
+        raw_pattern = re.compile(r"\b[A-Z]{1,3}[0-9]{1,7}\b")
+    warnings = []
+    for name, formulas in named_ref_formulas.items():
+        for f in formulas:
+            if not f:
+                continue
+            for raw in set(raw_pattern.findall(f)):
+                # skip if raw is part of any named range label
+                if not re.search(rf"\[{re.escape(name)}\]", f) and raw.isupper():
+                    warnings.append(f"• **{name}** formula contains raw cell `{raw}`")
+    if warnings:
+        st.warning(
+            "⚠️ Found formulas using raw cell references instead of named ranges:\n\n"
+            + "\n".join(warnings)
+        )
     
     # Dependency Graph
     st.subheader("🔗 Dependency Graph")
