@@ -231,26 +231,26 @@ if uploaded_files:
 
     # —– Missing direct cell references (not in any named range) —–
     with st.expander("⚠️ Missing Direct Cell References", expanded=True):
-    st.markdown("#### 🔍 Check for A1-style cell references not covered by any named range")
+        st.markdown("#### 🔍 Check for A1-style cell references not covered by any named range")
 
-    raw_ref_re = re.compile(r"\b([A-Z]{1,3}[0-9]{1,7})\b")
-    missing_refs = defaultdict(set)
+        raw_ref_re = re.compile(r"\b([A-Z]{1,3}[0-9]{1,7})\b")
+        missing_refs = defaultdict(set)
 
-    for nm, formulas in named_ref_formulas.items():
-        for f in formulas:
-            for ref in raw_ref_re.findall(f):
-                if re.search(rf"\[{nm}\]\[\d+\]\[\d+\]", f):
-                    continue
-                missing_refs[nm].add(ref)
+        for nm, formulas in named_ref_formulas.items():
+            for f in formulas:
+                for ref in raw_ref_re.findall(f):
+                    if re.search(rf"\[{nm}\]\[\d+\]\[\d+\]", f):
+                        continue
+                    missing_refs[nm].add(ref)
 
-    if missing_refs:
-        for nm, refs in missing_refs.items():
-            st.warning(
-                f"In **{nm}**, these direct cell refs weren’t wrapped by a named range: "
-                f"{', '.join(sorted(refs))}"
-            )
-    else:
-        st.success("✅ No missing direct cell references found.")
+        if missing_refs:
+            for nm, refs in missing_refs.items():
+                st.warning(
+                    f"In **{nm}**, these direct cell refs weren’t wrapped by a named range: "
+                    f"{', '.join(sorted(refs))}"
+                )
+        else:
+            st.success("✅ No missing direct cell references found.")
     
     # Dependency Graph
     st.subheader("🔗 Dependency Graph")
