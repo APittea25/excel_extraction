@@ -16,7 +16,7 @@ window.addEventListener('load', () => document.querySelectorAll('details').forEa
 </script>
 """, unsafe_allow_html=True)
 
-# Manual mapping UI
+# Manual mapping UI for external references [1]–[9]
 st.subheader("🛠️ Manual Mapping for External References")
 external_refs = {}
 for i in range(1, 10):
@@ -33,7 +33,7 @@ if uploaded_files:
     file_uploads = {}
     named_ref_formulas = {}
 
-    # Step 1: Load named references
+    # Step 1: Load named references from each workbook
     for uploaded_file in uploaded_files:
         fname = uploaded_file.name
         file_uploads[fname] = uploaded_file
@@ -65,7 +65,7 @@ if uploaded_files:
                 except:
                     continue
 
-    # Step 2: Formula remapping
+    # Step 2: Formula remapping logic
     def remap_formula(formula, curr_file, curr_sheet):
         if not formula:
             return ""
@@ -89,17 +89,13 @@ if uploaded_files:
             parts = raw.split("!")
             sheet = curr_sheet if len(parts) == 1 else parts[-2].strip("[]")
             cell_ref = parts[-1].replace("$", "")
-            match_range = ":" in cell_ref
-
-            if match_range:
-                start, end = cell_ref.split(":")
-                for tmp in (start, end):
-                    col, row = re.match(r"([A-Z]+)([0-9]+)", tmp).groups()
-                    key = (curr_file, sheet, int(row), column_index_from_string(col))
-                    if key in all_named_cell_map:
-                        nm, ro, co = all_named_cell_map[key]
-                        raw = f"[{curr_file}]{nm}[{ro}][{co}]"
-                        break
+            if ":" in cell_ref:
+                start, _ = cell_ref.split(":")
+                col, row = re.match(r"([A-Z]+)([0-9]+)", start).groups()
+                key = (curr_file, sheet, int(row), column_index_from_string(col))
+                if key in all_named_cell_map:
+                    nm, ro, co = all_named_cell_map[key]
+                    raw = f"[{curr_file}]{nm}[{ro}][{co}]"
             else:
                 col, row = re.match(r"([A-Z]+)([0-9]+)", cell_ref).groups()
                 key = (curr_file, sheet, int(row), column_index_from_string(col))
@@ -113,17 +109,17 @@ if uploaded_files:
 
         return out
 
-    # Step 3: Extract remapped formulas
+    # Step 3: Extract and remap formulas per named reference
     for nm, (f, sht, coords, min_r, min_c) in all_named_ref_info.items():
         wb = load_workbook(BytesIO(file_uploads[f].getvalue()), data_only=False)
         ws = wb[sht]
-        formulas = []
         entries = []
+        formulas = []
 
         for r, c in sorted(coords):
             cell = ws[f"{get_column_letter(c)}{r}"]
-            raw_value = cell.value
-            raw_formula = raw_value if isinstance(raw_value, str) and raw_value.startswith("=") else str(raw_value)
+            val = cell.value
+            raw_formula = val if isinstance(val, str) and val.startswith("=") else str(val)
             remap = remap_formula(raw_formula, f, sht)
             entries.append(f"{nm}[{r-min_r+1}][{c-min_c+1}] = {raw_formula}\n → {remap}")
             if remap:
@@ -133,19 +129,22 @@ if uploaded_files:
         with st.expander(f"📌 `{nm}` → `{sht}` in `{f}`"):
             st.code("\n".join(entries), language="text")
 
-    # Step 4: Optimized and fixed dependency graph
+    # Step 4: Stable & faster Dependency Graph
     st.subheader("🔗 Dependency Graph")
     dot = graphviz.Digraph()
     dot.attr(rankdir="LR")
 
     groups = defaultdict(list)
     for nm, (f, sht, *_rest) in all_named_ref_info.items():
-        groups[f].append((nm, sht))
+        groups[f].append(nm)
 
-    for f, nodes in groups.items():
-        sub = dot.subgraph(name=f"cluster_{f}", graph_attr={'label': f, 'style': 'filled', 'color': 'lightgrey'})
-        for nm, sht in nodes:
+    for idx, (f, nms) in enumerate(groups.items()):
+        sub = graphviz.Digraph(f"cluster_{idx}", graph_attr={
+            'label': f, 'style': 'filled', 'color': 'lightgrey'
+        })
+        for nm in nms:
             sub.node(nm, color='blue')
+        dot.subgraph(sub)
 
     all_names = set(named_ref_formulas)
     for tgt, fs in named_ref_formulas.items():
