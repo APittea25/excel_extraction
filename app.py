@@ -10,21 +10,6 @@ import graphviz
 st.set_page_config(page_title="Named Range Formula Remapper", layout="wide")
 st.title("\U0001F4D8 Named Range Coordinates + Formula Remapping")
 
-# Print button and JS to expand all expanders
-st.markdown("""
-    <script>
-    window.addEventListener('load', function() {
-        document.querySelectorAll('details').forEach(el => el.open = true);
-    });
-    </script>
-""", unsafe_allow_html=True)
-
-st.markdown("""
-    <div style='text-align: right; margin-bottom: 1em;'>
-        <button onclick="window.print()">🖨️ Print This Page</button>
-    </div>
-""", unsafe_allow_html=True)
-
 # Allow manual mapping of external references like [1], [2], etc.
 st.subheader("Manual Mapping for External References")
 external_refs = {}
