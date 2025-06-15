@@ -51,7 +51,7 @@ if uploaded_files:
     for uploaded_file in uploaded_files:
         display_name = uploaded_file.name
         file_display_names[display_name] = uploaded_file
-        st.header(f"\U0001F4C4 File: `{display_name}`")
+        st.header(f"\U0001F4C4 File: {display_name}")
         wb = load_workbook(BytesIO(uploaded_file.read()), data_only=False)
 
         for name in wb.defined_names:
@@ -210,11 +210,11 @@ if uploaded_files:
 
                     entries.append(f"{label} = {formula}\n → {remapped}")
         except Exception as e:
-            entries.append(f"❌ Error accessing `{name}` in `{sheet_name}`: {e}")
+            entries.append(f"❌ Error accessing {name} in {sheet_name}: {e}")
 
         named_ref_formulas[name] = formulas_for_graph
 
-        with st.expander(f"📌 Named Range: `{name}` → `{sheet_name}` in `{file_name}`"):
+        with st.expander(f"📌 Named Range: {name} → {sheet_name} in {file_name}"):
             st.code("\n".join(entries), language="text")
 
     # Dependency Graph
@@ -246,4 +246,4 @@ if uploaded_files:
 
     st.graphviz_chart(dot)
 else:
-    st.info("⬆️ Upload one or more `.xlsx` files to begin.")
+    st.info("⬆️ Upload one or more .xlsx files to begin.")
