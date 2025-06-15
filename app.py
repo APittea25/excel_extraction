@@ -7,14 +7,26 @@ import os
 from collections import defaultdict
 import graphviz
 
-# --- Session state for expand/collapse toggle ---
+st.set_page_config(page_title="📘 Named Range Formula Remapper", layout="wide")
+
+# --- Session state setup ---
 if "expanded_all" not in st.session_state:
     st.session_state.expanded_all = False
+
 def toggle():
     st.session_state.expanded_all = not st.session_state.expanded_all
 
 st.title("📘 Named Range Formula Remapper")
 st.button("🔁 Expand / Collapse All Named Ranges", on_click=toggle)
+
+# Only inject JS for expanders when detail tags exist
+if st.session_state.expanded_all or not st.session_state.expanded_all:
+    js = (
+        "document.querySelectorAll('details').forEach(el => el.open = "
+        + ("true" if st.session_state.expanded_all else "false")
+        + ");"
+    )
+    st.markdown(f"<script>{js}</script>", unsafe_allow_html=True)
 
 # Allow manual mapping of external references like [1], [2], etc.
 st.subheader("Manual Mapping for External References")
