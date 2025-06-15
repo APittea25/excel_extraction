@@ -245,5 +245,5 @@ with st.expander(
             dot.edge(source, target)
 
     st.graphviz_chart(dot)
-        else:
+    else:
     st.info("⬆️ Upload one or more `.xlsx` files to begin.")
