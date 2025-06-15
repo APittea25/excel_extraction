@@ -18,6 +18,28 @@ def toggle():
 
 st.button("🔁 Expand / Collapse All Named Ranges", on_click=toggle)
 
+# —– Add print-specific CSS to ensure full expansion & wrapping —–
+st.markdown("""
+<style>
+  @media print {
+    /* Make sure all expanders are shown (no collapsing in print mode) */
+    .streamlit-expanderHeader {
+      display: block !important;
+    }
+    /* Expand all details sections */
+    details {
+      display: block !important;
+    }
+    /* Enable wrapping and disable horizontal scrollbars in code blocks */
+    .stCodeBlock, pre, code {
+      overflow-x: visible !important;
+      white-space: pre-wrap !important;
+      word-wrap: break-word !important;
+    }
+  }
+</style>
+""", unsafe_allow_html=True)
+
 # Allow manual mapping of external references like [1], [2], etc.
 st.subheader("Manual Mapping for External References")
 external_refs = {}
