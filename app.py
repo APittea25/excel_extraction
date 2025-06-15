@@ -10,6 +10,14 @@ import graphviz
 st.set_page_config(page_title="Named Range Formula Remapper", layout="wide")
 st.title("\U0001F4D8 Named Range Coordinates + Formula Remapping")
 
+if "expanded_all" not in st.session_state:
+    st.session_state.expanded_all = False
+
+def toggle():
+    st.session_state.expanded_all = not st.session_state.expanded_all
+
+st.button("🔁 Expand / Collapse All Named Ranges", on_click=toggle)
+
 # Allow manual mapping of external references like [1], [2], etc.
 st.subheader("Manual Mapping for External References")
 external_refs = {}
@@ -193,7 +201,10 @@ if uploaded_files:
 
         named_ref_formulas[name] = formulas_for_graph
 
-        with st.expander(f"📌 Named Range: `{name}` → `{sheet_name}` in `{file_name}`"):
+        with st.expander(
+            f"📌 Named Range: `{name}` → `{sheet_name}` in `{file_name}`",
+            expanded=st.session_state.expanded_all
+        ):
             st.code("\n".join(entries), language="text")
 
     # Dependency Graph
