@@ -63,7 +63,8 @@ if uploaded_files:
 
     # Step 2: Remapping
     def remap_formula(formula, curr_file, curr_sheet):
-        if not formula: return ""
+        if not formula:
+            return ""
         def cell_address(r, c): return f"{get_column_letter(c)}{r}"
 
         def adjust_external(raw):
@@ -116,20 +117,22 @@ if uploaded_files:
 
             for r, c in sorted(coords):
                 cell = ws[f"{get_column_letter(c)}{r}"]
-                v = cell.value if isinstance(cell.value, str) and cell.value.startswith("=") else None
-                rem = remap_formula(v or str(cell.value), f, sht)
-                entries.append(f"{nm}[{r-min_r+1}][{c-min_c+1}] = {v}\n → {rem}")
+                raw_value = cell.value
+                raw_formula = raw_value if isinstance(raw_value, str) and raw_value.startswith("=") else str(raw_value)
+                rem = remap_formula(raw_formula, f, sht)
+                entries.append(f"{nm}[{r-min_r+1}][{c-min_c+1}] = {raw_formula}\n → {rem}")
                 if rem: formulas.append(rem)
 
             named_ref_formulas[nm] = formulas
             with st.expander(f"📌 `{nm}` → `{sht}` in `{f}`"):
                 st.code("\n".join(entries), language="text")
         except Exception as e:
-            st.error(f"Error in {nm}: {e}")
+            st.error(f"Error in processing `{nm}`: {e}")
 
     # Step 4: Build optimized dependency graph
     st.subheader("🔗 Dependency Graph")
-    dot = graphviz.Digraph(rankdir="LR")
+    dot = graphviz.Digraph()
+    dot.attr(rankdir="LR")
 
     groups = defaultdict(list)
     for nm, (f, sht, *_rest) in all_named_ref_info.items():
@@ -139,7 +142,7 @@ if uploaded_files:
         with dot.subgraph(f"cluster_{idx}") as c:
             c.attr(label=f, style="filled", color="lightgrey")
             for nm, sht in nodes:
-                col = "blue"  # Optionally color by sheet
+                col = "blue"
                 c.node(nm, color=col)
 
     all_names = set(named_ref_formulas)
