@@ -211,6 +211,9 @@ if uploaded_files:
 
         named_ref_formulas[name] = formulas_for_graph
 
+        # 👉 When displaying each named range, use expanded=state
+for nm, (fname, sheet, coords, minr, minc) in all_named_ref_info.items():
+    
         with st.expander(f"📌 Named Range: `{name}` → `{sheet_name}` in `{file_name}`"):
             st.code("\n".join(entries), language="text")
 
