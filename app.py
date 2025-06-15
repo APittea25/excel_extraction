@@ -10,6 +10,27 @@ import graphviz
 st.set_page_config(page_title="Named Range Formula Remapper", layout="wide")
 st.title("\U0001F4D8 Named Range Coordinates + Formula Remapping")
 
+# --- Toggle button ---
+if "expanded_all" not in st.session_state:
+    st.session_state.expanded_all = False
+
+if st.button("🔁 Expand/Collapse All Named Ranges"):
+    st.session_state.expanded_all = not st.session_state.expanded_all
+
+# --- Inject JS for expand/collapse ---
+if st.session_state.expanded_all:
+    st.markdown("""
+    <script>
+    document.querySelectorAll('details').forEach(el => { el.open = true; });
+    </script>
+    """, unsafe_allow_html=True)
+else:
+    st.markdown("""
+    <script>
+    document.querySelectorAll('details').forEach(el => { el.open = false; });
+    </script>
+    """, unsafe_allow_html=True)
+
 # Allow manual mapping of external references like [1], [2], etc.
 st.subheader("Manual Mapping for External References")
 external_refs = {}
