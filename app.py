@@ -7,8 +7,14 @@ import os
 from collections import defaultdict
 import graphviz
 
-st.set_page_config(page_title="Named Range Formula Remapper", layout="wide")
-st.title("\U0001F4D8 Named Range Coordinates + Formula Remapping")
+# --- Session state for expand/collapse toggle ---
+if "expanded_all" not in st.session_state:
+    st.session_state.expanded_all = False
+def toggle():
+    st.session_state.expanded_all = not st.session_state.expanded_all
+
+st.title("📘 Named Range Formula Remapper")
+st.button("🔁 Expand / Collapse All Named Ranges", on_click=toggle)
 
 # Allow manual mapping of external references like [1], [2], etc.
 st.subheader("Manual Mapping for External References")
