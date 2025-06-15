@@ -229,27 +229,27 @@ if uploaded_files:
         ):
             st.code("\n".join(entries), language="text")
 
-# —– Missing direct cell references (not in any named range) —–
-st.subheader("⚠️ Missing Direct Cell References")
+    # —– Missing direct cell references (not in any named range) —–
+    st.subheader("⚠️ Missing Direct Cell References")
 
-# regex to capture simple A1 references
-raw_ref_re = re.compile(r"\b([A-Z]{1,3}[0-9]{1,7})\b")
+    # regex to capture simple A1 references
+    raw_ref_re = re.compile(r"\b([A-Z]{1,3}[0-9]{1,7})\b")
 
-missing_refs = defaultdict(set)
+    missing_refs = defaultdict(set)
 
-for nm, formulas in named_ref_formulas.items():
-    for f in formulas:
-        for ref in raw_ref_re.findall(f):
-            # ignore if this raw reference is part of a named range label, e.g. [Name][1][2]
-            if re.search(rf"\[{nm}\]\[\d+\]\[\d+\]", f):
-                continue
-            missing_refs[nm].add(ref)
+    for nm, formulas in named_ref_formulas.items():
+        for f in formulas:
+            for ref in raw_ref_re.findall(f):
+                # ignore if this raw reference is part of a named range label, e.g. [Name][1][2]
+                if re.search(rf"\[{nm}\]\[\d+\]\[\d+\]", f):
+                    continue
+                missing_refs[nm].add(ref)
 
-if missing_refs:
-    for nm, refs in missing_refs.items():
-        st.warning(f"In named range **{nm}**, these cell references were found that aren't part of any named range: {', '.join(sorted(refs))}")
-else:
-    st.success("No missing direct cell references found.")
+    if missing_refs:
+        for nm, refs in missing_refs.items():
+            st.warning(f"In named range **{nm}**, these cell references were found that aren't part of any named range: {', '.join(sorted(refs))}")
+    else:
+        st.success("No missing direct cell references found.")
     
     # Dependency Graph
     st.subheader("🔗 Dependency Graph")
