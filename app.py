@@ -8,6 +8,25 @@ from collections import defaultdict
 import graphviz
 
 st.set_page_config(page_title="Named Range Formula Remapper", layout="wide")
+
+# Print mode controls
+if "print_mode" not in st.session_state:
+    st.session_state.print_mode = "full"
+
+def set_full():
+    st.session_state.print_mode = "full"
+
+def set_summary():
+    st.session_state.print_mode = "summary"
+
+col1, col2 = st.columns(2)
+with col1:
+    st.button("🖨️ Print Full", on_click=set_full)
+with col2:
+    st.button("🖨️ Print Summary (first 50 lines)", on_click=set_summary)
+
+st.write(f"**Current print mode:** {st.session_state.print_mode}")
+
 st.title("\U0001F4D8 Named Range Coordinates + Formula Remapping")
 
 if "expanded_all" not in st.session_state:
@@ -222,13 +241,18 @@ if uploaded_files:
             entries.append(f"❌ Error accessing `{name}` in `{sheet_name}`: {e}")
 
         named_ref_formulas[name] = formulas_for_graph
-
+        
+        limit = None if st.session_state.print_mode == "full" else 50
+        snippet = entries if limit is None else entries[:limit]
+        
         with st.expander(
             f"📌 Named Range: `{name}` → `{sheet_name}` in `{file_name}`",
             expanded=st.session_state.expanded_all
         ):
-            st.code("\n".join(entries), language="text")
-
+            st.code("\n".join(snippet), language="text")
+            if limit is not None and len(entries) > limit:
+                st.write(f"...and {len(entries) - limit} more lines hidden")
+                
     # —– Missing direct cell references (not in any named range) —–
     with st.expander("⚠️ Missing Direct Cell References", expanded=True):
         st.markdown("#### 🔍 Check for A1-style cell references not covered by any named range")
