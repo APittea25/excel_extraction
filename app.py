@@ -310,10 +310,10 @@ if uploaded_files:
     generate_json = st.button("🧾 Generate Summarised JSON Output")
 
     if generate_json:
-        import openai
+        from openai import OpenAI
         import json
 
-        openai.api_key = st.secrets["OPENAI_API_KEY"]
+        client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
         summaries = {}
 
@@ -351,7 +351,7 @@ if uploaded_files:
                     ],
                     temperature=0.3
                 )
-                content = response['choices'][0]['message']['content']
+                content = response.choices[0].message.content
                 parsed = json.loads(content)
                 summaries[name] = parsed
             except Exception as e:
