@@ -304,5 +304,62 @@ if uploaded_files:
             dot.edge(source, target)
 
     st.graphviz_chart(dot)
+# --- JSON Summary Generation Section ---
+    st.subheader("🧠 AI-Powered JSON Summary of Named Range Calculations")
+
+    generate_json = st.button("🧾 Generate Summarised JSON Output")
+
+    if generate_json:
+        import openai
+        import json
+
+        openai.api_key = st.secrets["OPENAI_API_KEY"]
+
+        summaries = {}
+
+        for name, formulas in named_ref_formulas.items():
+            if not formulas:
+                continue
+
+            prompt = f"""
+    You are an expert actuary and spreadsheet analyst.
+
+    Given the following remapped formulas from an Excel named range, summarize the pattern behind the calculations in a general form.
+    Each formula follows a remapped structure using notation like [1][2] to indicate row and column indices.
+
+    Please return a JSON object like:
+    {{
+      "named_range": "Name",
+      "summary": "Description of what the formula does",
+      "general_formula": "for i in range(...): for j in range(...): Result[i][j] = ...",
+      "dependencies": ["OtherNamedRange1", "OtherNamedRange2"],
+      "notes": "Any caveats, limitations, or variations found"
+    }}
+
+    Formulas:
+    {formulas[:10]}  # Sample first 10 for context
+
+    Only return the JSON.
+    """
+
+            try:
+                response = openai.ChatCompletion.create(
+                    model="gpt-4",
+                    messages=[
+                        {"role": "system", "content": "You summarize spreadsheet formulas into structured JSON."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=0.3
+                )
+                content = response['choices'][0]['message']['content']
+                parsed = json.loads(content)
+                summaries[name] = parsed
+            except Exception as e:
+            summaries[name] = {"error": str(e)}
+
+        st.json(summaries)
+    else:
+        st.info("Press the button above to generate a GPT-based JSON summary of calculations.")
+
 else:
     st.info("⬆️ Upload one or more `.xlsx` files to begin.")
