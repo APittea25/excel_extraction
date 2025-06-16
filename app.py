@@ -343,7 +343,7 @@ if uploaded_files:
     """
 
             try:
-                response = openai.ChatCompletion.create(
+                response = client.chat.completions.create(
                     model="gpt-4",
                     messages=[
                         {"role": "system", "content": "You summarize spreadsheet formulas into structured JSON."},
