@@ -355,7 +355,7 @@ if uploaded_files:
                 parsed = json.loads(content)
                 summaries[name] = parsed
             except Exception as e:
-            summaries[name] = {"error": str(e)}
+                summaries[name] = {"error": str(e)}
 
         st.json(summaries)
     else:
